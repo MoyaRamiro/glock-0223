@@ -3,7 +3,7 @@ interface Props {
   n: number; fecha: string; lugar: string; direccion: string; maps: string;
   cypher: string[]; shows: string[]; extra: string; main: string | null;
   asistentes: number; mvp: string | null; destacado: string;
-  flyer: string; flyerAlt: string; postIg: string; mainFoto?: string; flip: boolean;
+  flyer: string; flyerAlt: string; postIg: string; mainFoto?: string; foto?: string; fotoAlt?: string; flip: boolean;
 }
 const p = Astro.props;
 const rot = p.flip ? 'md:-rotate-2' : 'md:rotate-2';
@@ -29,5 +29,6 @@ const rot = p.flip ? 'md:-rotate-2' : 'md:rotate-2';
       <span>~{p.asistentes} personas · {p.destacado}</span>
     </p>
     <a href={p.postIg} target="_blank" rel="noopener" class="mt-4 inline-block underline underline-offset-4">Ver post del evento</a>
+    {p.foto && <img src={p.foto} alt={p.fotoAlt ?? `Foto en vivo de GLOCK #${p.n}`} loading="lazy" width="1280" height="720" class="mt-6 aspect-video w-full object-cover" onerror="this.remove()" />}
   </div>
 </article>
