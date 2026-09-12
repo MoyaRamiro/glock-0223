@@ -1,24 +1,30 @@
 ---
 import data from '../content/glock.json';
-const tira = Array(6).fill('GLOCK · SHOWS & CYPHER · MAR DEL PLATA · ');
+const tira = Array(10).fill('GLOCK · SHOWS & CYPHER · MAR DEL PLATA');
 ---
 <section id="top" class="relative overflow-hidden border-b border-white/10">
   <div class="mx-auto max-w-6xl px-4 pb-12 pt-16 md:pt-24">
-    <h1 class="font-display h-display uppercase">Glock<br />shows <span class="text-[#C400FF]">&amp;</span> cypher</h1>
+    <div class="grid gap-4 md:grid-cols-12 md:items-end">
+      <h1 class="font-display h-display uppercase md:col-span-9">Glock<br />shows <span class="text-[#C400FF]">&amp;</span> cypher</h1>
+      <p class="font-display uppercase leading-none md:col-span-3 md:pb-2 md:text-right" style="font-size: clamp(1.5rem, 3vw, 2.5rem);">Mar del Plata</p>
+    </div>
     <div class="mt-8 grid gap-8 md:grid-cols-12">
-      <p class="text-xl leading-snug md:col-span-7 md:text-2xl">Comunidad haciendo la cone de artistas urbanos emergentes. Eventos organizados <em>por artistas para artistas</em> en Mar del Plata.</p>
-      <div class="md:col-span-5">
-        <p class="text-white/70">Cypher de 6 a 10 raperos con MVP + shows de trap. Cuatro ediciones en Mole Club y Club TRI — con cero* y Tobi Dolezor desde Buenos Aires.</p>
-        <div class="mt-6 flex flex-col gap-3 sm:flex-row md:flex-col lg:flex-row">
+      <div class="md:col-span-7">
+        <p class="text-xl leading-snug md:text-2xl">GLOCK es comunidad.<br />Eventos organizados por <em>artistas</em> para <em>artistas</em></p>
+        <div class="mt-6 flex flex-col gap-3 sm:flex-row">
           <a class="btn-glock" href={data.contacto.instagram} target="_blank" rel="noopener">Seguir en Instagram</a>
-          <a class="btn-ghost" href={data.contacto.whatsapp} target="_blank" rel="noopener">WhatsApp {data.contacto.telefonoLabel}</a>
+          <a class="btn-ghost" href={data.contacto.whatsapp} target="_blank" rel="noopener">Hablar por WhatsApp</a>
         </div>
+      </div>
+      <div class="md:col-span-5">
+        <p class="font-display text-2xl uppercase leading-tight md:text-3xl">Cypher. Shows. Comunidad.</p>
+        <p class="mt-2 text-white/70">Cuatro ediciones construyendo la escena.</p>
       </div>
     </div>
   </div>
   <div class="marquee border-t border-white/10 bg-[#4B0055] py-2" aria-hidden="true">
     <div class="marquee-track font-display text-xl uppercase">
-      {tira.map((t) => <span class="px-2">{t}</span>)}
+      {tira.map((t) => <span class="px-6">{t}</span>)}
     </div>
   </div>
 </section>
