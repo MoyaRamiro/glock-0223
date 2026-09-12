@@ -19,6 +19,8 @@
       "destacado": "Segundo main de renombre",
       "flyer": "/images/flyers/glock-4.jpg",
       "flyerAlt": "Flyer GLOCK #4 con Tobi Dolezor en Club TRI Mar del Plata",
+      "foto": "/images/ediciones/glock-4.webp",
+      "fotoAlt": "Show en vivo de GLOCK #4 en Club TRI, Mar del Plata",
       "postIg": "https://www.instagram.com/p/DX7zVMHic42/"
     },
     {
@@ -31,6 +33,8 @@
       "destacado": "Junín + Mar del Plata y mejor cypher hasta ahora",
       "flyer": "/images/flyers/glock-3.jpg",
       "flyerAlt": "Flyer GLOCK #3 cypher session en Mole Club Mar del Plata",
+      "foto": "/images/ediciones/glock-3.jpg",
+      "fotoAlt": "Show en vivo de GLOCK #3 en Mole Club, Mar del Plata",
       "postIg": "https://www.instagram.com/p/DWfGsVkie6k/"
     },
     {
@@ -55,6 +59,8 @@
       "destacado": "Fecha inaugural",
       "flyer": "/images/flyers/glock-1.jpg",
       "flyerAlt": "Flyer GLOCK #1 fecha inaugural en Mole Club Mar del Plata",
+      "foto": "/images/ediciones/glock-1.jpg",
+      "fotoAlt": "Show en vivo de GLOCK #1 en Mole Club, Mar del Plata",
       "postIg": "https://www.instagram.com/p/DRDpROdCUQH/"
     }
   ],
