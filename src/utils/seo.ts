@@ -13,7 +13,7 @@ export const ytId = (url: string): string => url.match(/v=([\w-]{11})/)?.[1] ?? 
 
 export interface FaqItem { q: string; a: string }
 export interface EdicionLd {
-  n: number; fecha: string; lugar: string; direccion: string;
+  n: number; fecha: string; anio: number; lugar: string; direccion: string;
   flyer: string; postIg: string; shows: string[]; cypher: string[];
 }
 
@@ -69,7 +69,7 @@ export function eventsJsonLd(ediciones: EdicionLd[]): object[] {
     '@context': 'https://schema.org',
     '@type': 'MusicEvent',
     name: `GLOCK #${e.n} — Shows & Cypher en Mar del Plata`,
-    startDate: `2026-${e.fecha.split('/').reverse().join('-')}`,
+    startDate: `${e.anio}-${e.fecha.split('/').reverse().join('-')}`,
     eventStatus: 'https://schema.org/EventScheduled',
     location: {
       '@type': 'Place',

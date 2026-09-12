@@ -9,7 +9,7 @@
   },
   "ediciones": [
     {
-      "n": 4, "fecha": "23/07", "lugar": "Club TRI",
+      "n": 4, "fecha": "23/07", "anio": 2026, "lugar": "Club TRI",
       "direccion": "20 de Septiembre 2650, Mar del Plata",
       "maps": "https://www.google.com/maps/search/?api=1&query=Club+TRI+20+de+Septiembre+2650+Mar+del+Plata",
       "cypher": ["ULI40", "TOWAN", "QUECO", "REFLE", "ROUS", "AGS"],
@@ -24,7 +24,7 @@
       "postIg": "https://www.instagram.com/p/DX7zVMHic42/"
     },
     {
-      "n": 3, "fecha": "12/04", "lugar": "Mole Club",
+      "n": 3, "fecha": "12/04", "anio": 2026, "lugar": "Mole Club",
       "direccion": "Gascón 3158, Mar del Plata",
       "maps": "https://www.google.com/maps/search/?api=1&query=Mole+Club+Gasc%C3%B3n+3158+Mar+del+Plata",
       "cypher": ["LIBRARY", "REFLE", "ROUS", "TOMPYET", "GUSTI", "AGS", "UHRY"],
@@ -38,7 +38,7 @@
       "postIg": "https://www.instagram.com/p/DWfGsVkie6k/"
     },
     {
-      "n": 2, "fecha": "10/01", "lugar": "Mole Club",
+      "n": 2, "fecha": "10/01", "anio": 2026, "lugar": "Mole Club",
       "direccion": "Gascón 3158, Mar del Plata",
       "maps": "https://www.google.com/maps/search/?api=1&query=Mole+Club+Gasc%C3%B3n+3158+Mar+del+Plata",
       "cypher": ["D-WAN", "J TOBI", "OVCRIX", "ONMYSHIT", "PICHI", "TOWAN", "ULI40"],
@@ -50,7 +50,7 @@
       "postIg": "https://www.instagram.com/p/DSORaB4CTsR/"
     },
     {
-      "n": 1, "fecha": "17/11", "lugar": "Mole Club",
+      "n": 1, "fecha": "17/11", "anio": 2025, "lugar": "Mole Club",
       "direccion": "Gascón 3158, Mar del Plata",
       "maps": "https://www.google.com/maps/search/?api=1&query=Mole+Club+Gasc%C3%B3n+3158+Mar+del+Plata",
       "cypher": ["OXXO", "ULI40", "LEIVA", "CHAMBRET", "CUNDO YB", "LIBRARY ft. SOWKINGPASTO", "TOWAN", "QUECO", "NIGATO NIMACRI", "MATEODOSMG"],
