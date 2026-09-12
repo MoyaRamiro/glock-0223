@@ -1,0 +1,20 @@
+---
+import data from '../content/glock.json';
+---
+<footer id="contacto" class="border-t border-white/10">
+  <div class="mx-auto max-w-6xl px-4 pb-24 pt-12 md:pb-12">
+    <p class="font-display uppercase leading-none" style="font-size: clamp(3rem, 11vw, 7rem);">Glock 0223</p>
+    <div class="mt-6 grid gap-6 md:grid-cols-2">
+      <div class="text-white/70">
+        <p>Shows &amp; Cypher — Mar del Plata, Buenos Aires, Argentina.</p>
+        <p class="mt-2">WhatsApp <a class="underline underline-offset-4" href={data.contacto.whatsapp} target="_blank" rel="noopener">{data.contacto.telefonoLabel}</a></p>
+        <p>Email <a class="underline underline-offset-4" href="mailto:glock08000@gmail.com">glock08000@gmail.com</a></p>
+      </div>
+      <div class="flex flex-wrap content-start gap-3">
+        <a class="btn-ghost" href={data.contacto.instagram} target="_blank" rel="noopener">Instagram</a>
+        <a class="btn-ghost" href={data.contacto.tiktok} target="_blank" rel="noopener">TikTok</a>
+        <a class="btn-ghost" href={data.contacto.youtube} target="_blank" rel="noopener">YouTube</a>
+      </div>
+    </div>
+  </div>
+</footer>

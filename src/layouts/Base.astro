@@ -1,0 +1,31 @@
+---
+import '../styles/global.css';
+import '@fontsource/barlow-condensed/latin-600.css';
+import '@fontsource/barlow-condensed/latin-700.css';
+
+interface Props { title: string; description: string; }
+const { title, description } = Astro.props;
+const canonical = new URL(Astro.url.pathname, 'https://glock-0223.vercel.app').toString();
+---
+<!doctype html>
+<html lang="es-AR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content="https://glock-0223.vercel.app/images/og-glock.jpg" />
+    <meta property="og:locale" content="es_AR" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#0A0A0A" />
+  </head>
+  <body class="bg-[#0A0A0A] text-[#F5F1E8] antialiased">
+    <slot />
+  </body>
+</html>

@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+:root {
+  --glock-black: #0A0A0A;
+  --glock-bone: #F5F1E8;
+  --glock-violet: #4B0055;
+  --glock-magenta: #C400FF;
+  --glock-ink: #120312;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  background: var(--glock-black);
+  color: var(--glock-bone);
+  overflow-x: clip;
+}
+
+/* Grano de película sobre toda la página */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  opacity: 0.09;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.7'/%3E%3C/svg%3E");
+}
+
+.font-display {
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  letter-spacing: -0.01em;
+}
+
+.h-display {
+  font-size: clamp(2.75rem, 9vw, 6rem);
+  line-height: 0.92;
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+.text-stroke {
+  -webkit-text-stroke: 2px rgba(245, 241, 232, 0.4);
+  color: transparent;
+}
+
+::selection { background: #C400FF; color: #0A0A0A; }
+:focus-visible { outline: 2px solid #C400FF; outline-offset: 3px; }
+
+* { scrollbar-width: thin; scrollbar-color: #4B0055 #0A0A0A; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: #4B0055; }
+*::-webkit-scrollbar-track { background: #0A0A0A; }
+
+.btn-glock {
+  display: inline-block;
+  background: #4B0055;
+  color: #F5F1E8;
+  font-weight: 700;
+  padding: 0.8rem 1.4rem;
+  min-height: 44px;
+  transition: background 0.2s ease-out, color 0.2s ease-out;
+}
+.btn-glock:hover { background: #C400FF; color: #0A0A0A; }
+
+.btn-ghost {
+  display: inline-block;
+  border: 2px solid #F5F1E8;
+  color: #F5F1E8;
+  font-weight: 700;
+  padding: 0.8rem 1.4rem;
+  min-height: 44px;
+  transition: background 0.2s ease-out, color 0.2s ease-out;
+}
+.btn-ghost:hover { background: #F5F1E8; color: #0A0A0A; }
+
+.btn-giant {
+  display: inline-block;
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  line-height: 1;
+  padding: 1rem 2rem;
+  min-height: 56px;
+}
+
+/* Tira marquee: el track lleva el contenido duplicado para loop perfecto */
+.marquee { overflow: hidden; white-space: nowrap; }
+.marquee-track {
+  display: inline-flex;
+  width: max-content;
+  animation: marquee 30s linear infinite;
+}
+@keyframes marquee { to { transform: translateX(-50%); } }
+
+/* Muro de tags de artistas */
+.tag {
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  text-transform: uppercase;
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  line-height: 1;
+  border: 1px solid rgba(245, 241, 232, 0.3);
+  padding: 0.35rem 0.8rem;
+  transition: background 0.15s ease-out, color 0.15s ease-out, border-color 0.15s ease-out;
+}
+a.tag:hover { background: #F5F1E8; color: #0A0A0A; border-color: #F5F1E8; }
+
+.row-link { transition: background 0.15s ease-out, color 0.15s ease-out; }
+.row-link:hover { background: #F5F1E8; color: #0A0A0A; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

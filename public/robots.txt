@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://glock-0223.vercel.app/sitemap-index.xml

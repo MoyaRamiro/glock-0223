@@ -1,0 +1,11 @@
+---
+import data from '../content/glock.json';
+import EdicionCard from './EdicionCard.astro';
+---
+<section id="ediciones" class="mx-auto max-w-6xl px-4 py-14 md:py-20">
+  <h2 class="font-display h-display uppercase">Cuatro<br />ediciones</h2>
+  <p class="mt-4 max-w-2xl text-white/70">De la fecha inaugural en Mole Club al all-stars en Club TRI: 460 personas, dos mains de Buenos Aires y el mejor cypher hasta ahora.</p>
+  <div class="mt-4">
+    {data.ediciones.map((e, i) => <EdicionCard {...e} flip={i % 2 === 1} />)}
+  </div>
+</section>

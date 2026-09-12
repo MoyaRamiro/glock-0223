@@ -1,0 +1,13 @@
+---
+import data from '../content/glock.json';
+---
+<header class="sticky top-0 z-50 border-b border-white/10 bg-[#0A0A0A]">
+  <nav class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3" aria-label="Principal">
+    <a href="#top" class="font-display text-2xl font-bold uppercase tracking-wide">Glock</a>
+    <div class="hidden gap-6 text-sm md:flex">
+      <a href="#ediciones">Ediciones</a><a href="#artistas">Artistas</a>
+      <a href="#sessions">Sessions</a><a href="#contacto">Contacto</a>
+    </div>
+    <a href={data.contacto.instagram} target="_blank" rel="noopener" class="btn-glock">Seguir</a>
+  </nav>
+</header>

@@ -1,0 +1,15 @@
+---
+import data from '../content/glock.json';
+---
+<section id="proxima" class="border-y-4 border-[#C400FF]">
+  <div class="mx-auto max-w-6xl px-4 py-14 text-center md:py-20">
+    <h2 class="font-display uppercase leading-none" style="font-size: clamp(3.5rem, 12vw, 8rem);">Glock #{data.proxima.n}</h2>
+    <p class="mt-2 font-display text-2xl uppercase tracking-wide text-white/70 md:text-3xl">Fecha a anunciar — Mar del Plata</p>
+    {data.proxima.entradasUrl
+      ? <a class="btn-glock btn-giant mt-8" href={data.proxima.entradasUrl} target="_blank" rel="noopener">Comprar entradas</a>
+      : <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <a class="btn-glock btn-giant" href={data.contacto.instagram} target="_blank" rel="noopener">Enterarme por Instagram</a>
+          <a class="btn-ghost btn-giant" href="https://wa.me/5492235298014?text=Av%C3%ADsenme%20de%20la%20pr%C3%B3xima%20GLOCK" target="_blank" rel="noopener">Avísenme</a>
+        </div>}
+  </div>
+</section>

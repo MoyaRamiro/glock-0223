@@ -1,0 +1,16 @@
+---
+import data from '../content/glock.json';
+const sponsors = data.sponsors as { nombre: string; logo?: string }[];
+---
+<section id="sponsors" class="mx-auto max-w-6xl px-4 py-14 md:py-20">
+  <h2 class="font-display h-display uppercase">Apoyan<br />la escena</h2>
+  <ul class="mt-8 flex flex-wrap items-center gap-x-10 gap-y-4">
+    {sponsors.map((s) => (
+      <li class="font-display text-3xl uppercase opacity-80">
+        {s.logo
+          ? <img src={s.logo} alt={`Logo ${s.nombre}, sponsor de GLOCK`} loading="lazy" width="400" height="200" class="h-14 w-auto object-contain" onerror="this.remove()" />
+          : s.nombre}
+      </li>
+    ))}
+  </ul>
+</section>
