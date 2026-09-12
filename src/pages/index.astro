@@ -17,7 +17,7 @@ import data from '../content/glock.json';
 import { orgJsonLd, websiteJsonLd, faqJsonLd, eventsJsonLd, videosJsonLd } from '../utils/seo';
 const lds = [orgJsonLd(), websiteJsonLd(), faqJsonLd(data.faq), ...eventsJsonLd(data.ediciones as never[]), ...videosJsonLd(data.sessions)];
 ---
-<Base title="GLOCK | Shows & Cypher — Trap, Rap y Hip-Hop en Mar del Plata" description="GLOCK Shows & Cypher en Mar del Plata: ronda cypher con MVP + shows de trap de artistas emergentes. Ediciones, artistas, Cypher Sessions y próxima fecha.">
+<Base title="GLOCK | Shows & Cypher. Trap, Rap y Hip-Hop en Mar del Plata" description="GLOCK Shows & Cypher en Mar del Plata: ronda cypher con MVP + shows de trap de artistas emergentes. Ediciones, artistas, Cypher Sessions y próxima fecha.">
   {lds.map((ld) => <script type="application/ld+json" set:html={JSON.stringify(ld)} />)}
   <Header /><main><Hero /><Manifiesto /><Ediciones /><Artistas /><Sessions /><SongWars /><Sponsors /><Proxima /><SerParte /><Faq /></main><Contacto /><StickyCta />
 </Base>

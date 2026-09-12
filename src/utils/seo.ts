@@ -57,7 +57,7 @@ export function videosJsonLd(sessions: SessionLd[]): object[] {
     .map((s) => ({
       '@context': 'https://schema.org',
       '@type': 'VideoObject',
-      name: `GLOCK Cypher Session #${s.n} — Mar del Plata`,
+      name: `GLOCK Cypher Session #${s.n}. Mar del Plata`,
       description: `Cypher Session #${s.n} de GLOCK Shows & Cypher: ronda cypher de rap en Mar del Plata.`,
       thumbnailUrl: `https://i.ytimg.com/vi/${ytId(s.yt)}/hqdefault.jpg`,
       embedUrl: `https://www.youtube.com/embed/${ytId(s.yt)}`,
@@ -68,7 +68,7 @@ export function eventsJsonLd(ediciones: EdicionLd[]): object[] {
   return ediciones.map((e) => ({
     '@context': 'https://schema.org',
     '@type': 'MusicEvent',
-    name: `GLOCK #${e.n} — Shows & Cypher en Mar del Plata`,
+    name: `GLOCK #${e.n}. Shows & Cypher en Mar del Plata`,
     startDate: `${e.anio}-${e.fecha.split('/').reverse().join('-')}`,
     eventStatus: 'https://schema.org/EventScheduled',
     location: {

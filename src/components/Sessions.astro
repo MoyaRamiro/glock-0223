@@ -11,7 +11,7 @@ const pendientes = data.sessions.filter((s) => s.estado !== 'publicada');
   <a href={lead.yt} target="_blank" rel="noopener" class="group mt-8 block">
     <img src={`https://i.ytimg.com/vi/${ytId(lead.yt)}/hqdefault.jpg`} alt={`Cypher Session #${lead.n} de GLOCK en Mar del Plata`} loading="lazy" width="1280" height="720" class="aspect-video w-full object-cover" onerror="this.remove()" />
     <p class="mt-3 flex items-baseline justify-between gap-4">
-      <span class="font-display text-3xl uppercase md:text-5xl">Session #{lead.n} — la última</span>
+      <span class="font-display text-3xl uppercase md:text-5xl">Session #{lead.n}. la última</span>
       <span class="underline underline-offset-4">Ver en YouTube</span>
     </p>
   </a>
@@ -26,7 +26,7 @@ const pendientes = data.sessions.filter((s) => s.estado !== 'publicada');
     ))}
     {pendientes.map((s) => (
       <li class="flex flex-wrap items-baseline justify-between gap-4 border-t border-dashed border-white/30 py-4">
-        <span class="font-display text-2xl uppercase text-white/60 md:text-3xl">Session #{s.n} — editándose</span>
+        <span class="font-display text-2xl uppercase text-white/60 md:text-3xl">Session #{s.n}. editándose</span>
         <a href="https://wa.me/5492235298014?text=Av%C3%ADsenme%20cuando%20salga%20la%20Session%20%234" target="_blank" rel="noopener" class="underline underline-offset-4">Avísenme</a>
       </li>
     ))}
