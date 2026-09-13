@@ -91,10 +91,10 @@
   ],
   "songwars": [
     {
-      "vol": 1, "fecha": "31/05", "hora": "21:30", "plataforma": "Kick",
+      "vol": 1, "fecha": "31/05", "hora": "21:30", "anio": 2026, "plataforma": "Kick",
       "url": "https://kick.com/soulsv-0",
       "formato": "Cada artista presenta su canción, un jurado evalúa con puntaje y los ganadores se llevan premios.",
-      "premio": "1er puesto: cupo para tocar en vivo en GLOCK #4",
+      "premio": "1er puesto: cupo para tocar en vivo en GLOCK #4", "ganador": "Pipper",
       "flyer": "/images/flyers/songwars-vol1.jpg",
       "flyerAlt": "Flyer SongWars vol.1 competencia virtual de GLOCK"
     }
