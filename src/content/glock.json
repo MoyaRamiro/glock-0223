@@ -100,9 +100,11 @@
     }
   ],
   "sponsors": [
-    { "nombre": "The Real Pilcha" }, { "nombre": "Fas Spot" },
-    { "nombre": "Squadra Vincente" }, { "nombre": "PalaciosTTT" },
-    { "nombre": "Vela Barbería" }
+    { "nombre": "The Real Pilcha", "logo": "/images/sponsors/real-pilcha.png" },
+    { "nombre": "Fas Spot", "logo": "/images/sponsors/fas-spot.png" },
+    { "nombre": "Squadra Vincente", "logo": "/images/sponsors/squadra-vincente.png" },
+    { "nombre": "PalaciosTTT", "logo": "/images/sponsors/palacios-ttt.png" },
+    { "nombre": "Vela Barbería", "logo": "/images/sponsors/vela-barberia.png" }
   ],
   "proxima": { "n": 5, "estado": "a-anunciar", "entradasUrl": "" },
   "faq": [
