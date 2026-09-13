@@ -5,23 +5,36 @@ const pubs = data.sessions.filter((s) => s.estado === 'publicada');
 const lead = pubs[pubs.length - 1];
 const rest = pubs.slice(0, -1).reverse();
 const pendientes = data.sessions.filter((s) => s.estado !== 'publicada');
+const thumb = (id: string, q: string) => `https://i.ytimg.com/vi/${id}/${q}.jpg`;
 ---
 <section id="sessions" class="mx-auto max-w-6xl px-4 py-14 md:py-20">
   <h2 class="font-display h-display uppercase">Cypher<br />sessions</h2>
-  <a href={lead.yt} target="_blank" rel="noopener" class="group mt-8 block">
-    <img src={`https://i.ytimg.com/vi/${ytId(lead.yt)}/hqdefault.jpg`} alt={`Cypher Session #${lead.n} de GLOCK en Mar del Plata`} loading="lazy" width="1280" height="720" class="aspect-video w-full object-cover" onerror="this.remove()" />
-    <p class="mt-3 flex items-baseline justify-between gap-4">
-      <span class="font-display text-3xl uppercase md:text-5xl">Session #{lead.n}. la última</span>
-      <span class="underline underline-offset-4">Ver en YouTube</span>
+  <div class="mt-8" data-yt-feature>
+    <button type="button" data-yt-load={ytId(lead.yt)} data-yt-title={`Cypher Session #${lead.n} de GLOCK`} class="group block w-full text-left" aria-label={`Reproducir Cypher Session #${lead.n} acá mismo`}>
+      <span class="relative block aspect-video w-full overflow-hidden bg-black">
+        <img src={thumb(ytId(lead.yt), 'maxresdefault')} alt={`Cypher Session #${lead.n} de GLOCK en Mar del Plata`} loading="lazy" width="1280" height="720" class="h-full w-full object-cover" onerror="this.onerror=null;this.src=this.src.replace('maxresdefault','hqdefault')" />
+        <span class="absolute inset-0 grid place-items-center" aria-hidden="true">
+          <span class="grid h-20 w-20 place-items-center rounded-full bg-[#4B0055] transition-colors group-hover:bg-[#C400FF] md:h-24 md:w-24">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#F5F1E8" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+          </span>
+        </span>
+      </span>
+    </button>
+    <p class="mt-3 flex flex-wrap items-baseline justify-between gap-4">
+      <span class="font-display text-3xl uppercase md:text-5xl" data-yt-now>Session #{lead.n}. la última</span>
+      <a href={lead.yt} target="_blank" rel="noopener" class="underline underline-offset-4" data-yt-link>Ver en YouTube</a>
     </p>
-  </a>
+  </div>
   <ul class="mt-6">
     {rest.map((s) => (
       <li class="border-t border-white/15">
-        <a href={s.yt} target="_blank" rel="noopener" class="flex items-baseline justify-between gap-4 py-4">
-          <span class="font-display text-2xl uppercase md:text-3xl">Session #{s.n}</span>
-          <span class="underline underline-offset-4">Ver</span>
-        </a>
+        <div class="flex items-baseline justify-between gap-4 py-4">
+          <button type="button" data-yt-load={ytId(s.yt)} data-yt-title={`Cypher Session #${s.n} de GLOCK`} class="flex items-baseline gap-4 text-left" aria-label={`Reproducir Cypher Session #${s.n} arriba`}>
+            <span class="font-display text-2xl uppercase md:text-3xl">Session #{s.n}</span>
+            <span class="underline underline-offset-4">Reproducir</span>
+          </button>
+          <a href={s.yt} target="_blank" rel="noopener" class="shrink-0 underline underline-offset-4">YouTube</a>
+        </div>
       </li>
     ))}
     {pendientes.map((s) => (
@@ -32,3 +45,37 @@ const pendientes = data.sessions.filter((s) => s.estado !== 'publicada');
     ))}
   </ul>
 </section>
+<script is:inline>
+  (function () {
+    var feat = document.querySelector('[data-yt-feature]');
+    var now = document.querySelector('[data-yt-now]');
+    var link = document.querySelector('[data-yt-link]');
+    if (!feat) return;
+    function play(id, title, watchUrl) {
+      feat.querySelector('button,[data-yt-frame]')?.remove();
+      var box = document.createElement('div');
+      box.setAttribute('data-yt-frame', '');
+      box.className = 'aspect-video w-full';
+      var f = document.createElement('iframe');
+      f.className = 'h-full w-full';
+      f.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0';
+      f.title = title;
+      f.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      f.allowFullscreen = true;
+      f.loading = 'lazy';
+      box.appendChild(f);
+      feat.prepend(box);
+      if (now) now.textContent = title.replace(' de GLOCK', '');
+      if (watchUrl && link) link.href = watchUrl;
+      var calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      feat.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'nearest' });
+    }
+    document.querySelectorAll('#sessions [data-yt-load]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var card = b.closest('li');
+        var watch = card ? card.querySelector('a[href*="youtube.com"],a[href*="youtu.be"]') : null;
+        play(b.getAttribute('data-yt-load'), b.getAttribute('data-yt-title'), watch ? watch.href : null);
+      });
+    });
+  })();
+</script>
