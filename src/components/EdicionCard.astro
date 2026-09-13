@@ -13,7 +13,7 @@ const rot = p.flip ? 'md:-rotate-2' : 'md:rotate-2';
   <div class:list={['md:col-span-5', p.flip && 'md:order-3']}>
     {p.foto ? (
       <>
-        <p class:list={['relative z-10 mx-auto -mb-7 w-4/5 bg-[#4B0055] px-4 py-3 text-center font-display text-4xl font-bold uppercase', rot]}>Glock #{p.n}</p>
+        <p class:list={['relative z-10 -mb-7 w-full bg-[#4B0055] px-4 py-3 text-center font-display text-4xl font-bold uppercase', rot]}>Glock #{p.n}</p>
         <img src={p.foto} alt={p.fotoAlt ?? `Foto en vivo de GLOCK #${p.n}`} loading="lazy" width="1280" height="720" class="aspect-video w-full object-cover" onerror="this.remove()" />
       </>
     ) : (
