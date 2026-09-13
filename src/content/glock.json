@@ -33,7 +33,7 @@
       "destacado": "Junín + Mar del Plata y mejor cypher hasta ahora",
       "flyer": "/images/flyers/glock-3.jpg",
       "flyerAlt": "Flyer GLOCK #3 cypher session en Mole Club Mar del Plata",
-      "foto": "/images/ediciones/glock-3.jpg",
+      "foto": "/images/ediciones/glock-3.webp",
       "fotoAlt": "Show en vivo de GLOCK #3 en Mole Club, Mar del Plata",
       "postIg": "https://www.instagram.com/p/DWfGsVkie6k/"
     },
@@ -47,6 +47,8 @@
       "destacado": "Primer main de Buenos Aires y récord de asistencia",
       "flyer": "/images/flyers/glock-2.jpg",
       "flyerAlt": "Flyer GLOCK #2 con CERO* como main en Mole Club Mar del Plata",
+      "foto": "/images/ediciones/glock-2.webp",
+      "fotoAlt": "Show en vivo de GLOCK #2 en Mole Club, Mar del Plata",
       "postIg": "https://www.instagram.com/p/DSORaB4CTsR/"
     },
     {
@@ -59,7 +61,7 @@
       "destacado": "Fecha inaugural",
       "flyer": "/images/flyers/glock-1.jpg",
       "flyerAlt": "Flyer GLOCK #1 fecha inaugural en Mole Club Mar del Plata",
-      "foto": "/images/ediciones/glock-1.jpg",
+      "foto": "/images/ediciones/glock-1.webp",
       "fotoAlt": "Show en vivo de GLOCK #1 en Mole Club, Mar del Plata",
       "postIg": "https://www.instagram.com/p/DRDpROdCUQH/"
     }
