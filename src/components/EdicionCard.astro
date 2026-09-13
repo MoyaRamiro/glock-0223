@@ -21,7 +21,7 @@ const rot = p.flip ? 'md:-rotate-2' : 'md:rotate-2';
     <h3 class="font-display text-4xl uppercase leading-none">Glock #{p.n} <span class="text-white/50">. {p.fecha}/{p.anio}</span></h3>
     <p class="mt-2 text-white/80">{p.lugar} · {p.direccion} · <a href={p.maps} target="_blank" rel="noopener" class="underline underline-offset-4">Cómo llegar</a></p>
     <p class="mt-4"><strong class="font-display text-xl uppercase tracking-wide">Cypher. </strong>{p.cypher.map((c, i) => <>{i > 0 && ' · '}{p.highlight?.includes(c) ? <span class="underline underline-offset-4">{c}</span> : c}</>)}</p>
-    <p class="mt-2"><strong class="font-display text-xl uppercase tracking-wide">Shows. </strong>{p.main && <><span class="text-[#C400FF]">{p.main}</span> · </>}{p.shows.join(' · ')}</p>
+    <p class="mt-2"><strong class="font-display text-xl uppercase tracking-wide">Shows. </strong>{p.main && <><span class="font-display text-xl uppercase tracking-wide text-[#C400FF]">{p.main}</span> · </>}{p.shows.join(' · ')}</p>
     {p.extra && <p class="mt-2 text-white/70">{p.extra}</p>}
     <a href={p.postIg} target="_blank" rel="noopener" class="mt-4 inline-block underline underline-offset-4">Ver post del evento</a>
     {p.foto && <img src={p.foto} alt={p.fotoAlt ?? `Foto en vivo de GLOCK #${p.n}`} loading="lazy" width="1280" height="720" class="mt-6 aspect-video w-full object-cover" onerror="this.remove()" />}
