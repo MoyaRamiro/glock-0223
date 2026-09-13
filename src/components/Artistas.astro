@@ -5,7 +5,7 @@ const firstLink = (a: { ig: string; tiktok: string; yt: string }) => a.ig || a.t
 <section id="artistas" class="border-y border-white/10 bg-[#120312]">
   <div class="mx-auto max-w-6xl px-4 py-14 md:py-20">
     <h2 class="font-display h-display uppercase">Pasaron<br />por Glock</h2>
-    <ul class="mt-8 flex flex-wrap gap-x-2 gap-y-4 md:gap-x-3">
+    <ul class="mt-8 flex flex-wrap gap-x-2 gap-y-5 md:gap-x-3">
       {data.artistas.map((a) => {
         const href = firstLink(a);
         return (
