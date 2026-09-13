@@ -73,6 +73,7 @@ body::after {
   transition: background 0.2s ease-out, color 0.2s ease-out;
 }
 .btn-ghost:hover { background: #F5F1E8; color: #0A0A0A; }
+.btn-kick:hover { background: #53FC18; border-color: #53FC18; color: #0A0A0A; }
 
 .btn-giant {
   display: inline-block;
