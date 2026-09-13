@@ -67,17 +67,21 @@
     }
   ],
   "artistas": [
-    { "nombre": "ULI40", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "TOWAN", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "QUECO", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "REFLE", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "ROUS", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "AGS", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "LIBRARY", "ig": "", "tiktok": "", "yt": "" },
+    { "nombre": "CERO*", "ig": "", "tiktok": "", "yt": "" },
+    { "nombre": "TOBI DOLEZOR", "ig": "", "tiktok": "", "yt": "" },
+    { "nombre": "HUNTER", "ig": "", "tiktok": "", "yt": "" },
+    { "nombre": "THATY RDZ", "ig": "", "tiktok": "", "yt": "" },
+    { "nombre": "MATTEITO", "ig": "", "tiktok": "", "yt": "" },
     { "nombre": "LUCKY BLANKO", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "HUNTER YB", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "MATTEITO YB", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "J TOBI", "ig": "", "tiktok": "", "yt": "" }
+    { "nombre": "ULI40", "ig": "", "tiktok": "", "yt": "" },
+    { "nombre": "LIBRARY", "ig": "", "tiktok": "", "yt": "" },
+    { "nombre": "TOWAN", "ig": "", "tiktok": "", "yt": "" },
+    { "nombre": "REFLE", "ig": "", "tiktok": "", "yt": "" },
+    { "nombre": "MERSA CLUB", "ig": "", "tiktok": "", "yt": "" },
+    { "nombre": "KIDD STARS", "ig": "", "tiktok": "", "yt": "" },
+    { "nombre": "MINE", "ig": "", "tiktok": "", "yt": "" },
+    { "nombre": "NEKO", "ig": "", "tiktok": "", "yt": "" },
+    { "nombre": "PIPPER", "ig": "", "tiktok": "", "yt": "" }
   ],
   "sessions": [
     { "n": 1, "yt": "https://www.youtube.com/watch?v=SGWKBFfL4XE", "estado": "publicada" },
