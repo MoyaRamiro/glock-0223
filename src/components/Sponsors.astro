@@ -8,7 +8,7 @@ const sponsors = data.sponsors as { nombre: string; logo?: string }[];
     {sponsors.map((s) => (
       <li class="font-display text-3xl uppercase opacity-80">
         {s.logo
-          ? <img src={s.logo} alt={`Logo ${s.nombre}, sponsor de GLOCK`} loading="lazy" width="600" height="300" class="h-32 w-auto object-contain md:h-36" onerror="this.remove()" />
+          ? <img src={s.logo} alt={`Logo ${s.nombre}, sponsor de GLOCK`} loading="lazy" width="600" height="300" class="h-40 w-auto object-contain md:h-44" onerror="this.remove()" />
           : s.nombre}
       </li>
     ))}

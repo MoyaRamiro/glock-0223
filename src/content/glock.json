@@ -67,21 +67,23 @@
     }
   ],
   "artistas": [
-    { "nombre": "CERO*", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "TOBI DOLEZOR", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "HUNTER", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "THATY RDZ", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "MATTEITO", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "LUCKY BLANKO", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "ULI40", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "LIBRARY", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "TOWAN", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "REFLE", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "MERSA CLUB", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "KIDD STARS", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "MINE", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "NEKO", "ig": "", "tiktok": "", "yt": "" },
-    { "nombre": "PIPPER", "ig": "", "tiktok": "", "yt": "" }
+    { "nombre": "CERO*", "ig": "https://www.instagram.com/ceroasterisco/" },
+    { "nombre": "TOBI DOLEZOR", "ig": "https://www.instagram.com/tobidolezor/" },
+    { "nombre": "HUNTER", "ig": "https://www.instagram.com/hunterrr.yb/" },
+    { "nombre": "THATY RDZ", "ig": "https://www.instagram.com/thaty.mgn/" },
+    { "nombre": "MATTEITO", "ig": "https://www.instagram.com/matteito.yb/" },
+    { "nombre": "LUCKY BLANKO", "ig": "https://www.instagram.com/ys.luckyblanko/" },
+    { "nombre": "UZU", "ig": "https://www.instagram.com/uzu.messineo/" },
+    { "nombre": "ULI40", "ig": "https://www.instagram.com/ulises_nicolasss/" },
+    { "nombre": "LIBRARY", "ig": "https://www.instagram.com/library.pbc/" },
+    { "nombre": "TOWAN", "ig": "https://www.instagram.com/towan.8e/" },
+    { "nombre": "REFLE", "ig": "https://www.instagram.com/refle.elpress.ente/" },
+    { "nombre": "TOMPYET", "ig": "https://www.instagram.com/tompyet27/" },
+    { "nombre": "MERSA CLUB", "ig": "https://www.instagram.com/mersaclub/" },
+    { "nombre": "KIDD STARS", "ig": "https://www.instagram.com/starsfamily2k26/" },
+    { "nombre": "MINE", "ig": "https://www.instagram.com/vip.mine_/" },
+    { "nombre": "NEKO", "ig": "https://www.instagram.com/ys.neko/" },
+    { "nombre": "PIPPER", "ig": "https://www.instagram.com/pippertypebeat/" }
   ],
   "sessions": [
     { "n": 1, "yt": "https://www.youtube.com/watch?v=SGWKBFfL4XE", "estado": "publicada" },
@@ -96,7 +98,8 @@
       "formato": "Cada artista presenta su canción, un jurado evalúa con puntaje y los ganadores se llevan premios.",
       "premio": "1er puesto: cupo para tocar en vivo en GLOCK #4", "ganador": "Pipper",
       "flyer": "/images/flyers/songwars-vol1.jpg",
-      "flyerAlt": "Flyer SongWars vol.1 competencia virtual de GLOCK"
+      "flyerAlt": "Flyer SongWars vol.1 competencia virtual de GLOCK",
+      "post": "https://www.instagram.com/p/DY0e2bWCcT_/?img_index=1"
     }
   ],
   "sponsors": [
