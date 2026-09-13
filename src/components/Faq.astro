@@ -6,8 +6,8 @@ import data from '../content/glock.json';
   <div class="mt-8">
     {data.faq.map((f) => (
       <details class="border-t border-white/15 py-4 last:border-b">
-        <summary class="cursor-pointer font-display text-2xl uppercase md:text-3xl">{f.q}</summary>
-        <p class="mt-2 max-w-3xl text-white/75">{f.a}</p>
+        <summary class="cursor-pointer font-display text-3xl uppercase md:text-4xl">{f.q}</summary>
+        <p class="mt-2 max-w-3xl text-lg text-white/75">{f.a}</p>
       </details>
     ))}
   </div>
