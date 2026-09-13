@@ -8,7 +8,7 @@ const pendientes = data.sessions.filter((s) => s.estado !== 'publicada');
 const thumb = (id: string, q: string) => `https://i.ytimg.com/vi/${id}/${q}.jpg`;
 ---
 <section id="sessions" class="mx-auto max-w-6xl px-4 py-14 md:py-20">
-  <h2 class="font-display h-display uppercase">Cypher<br />sessions</h2>
+  <h2 class="font-display h-display uppercase">Cypher session</h2>
   <div class="mt-8" data-yt-feature>
     <button type="button" data-yt-load={ytId(lead.yt)} data-yt-title={`Cypher Session #${lead.n} de GLOCK`} class="group block w-full text-left" aria-label={`Reproducir Cypher Session #${lead.n} acá mismo`}>
       <span class="relative block aspect-video w-full overflow-hidden bg-black">
@@ -39,7 +39,7 @@ const thumb = (id: string, q: string) => `https://i.ytimg.com/vi/${id}/${q}.jpg`
     ))}
     {pendientes.map((s) => (
       <li class="flex flex-wrap items-baseline justify-between gap-4 border-t border-dashed border-white/30 py-4">
-        <span class="font-display text-2xl uppercase text-white/60 md:text-3xl">Session #{s.n}. editándose</span>
+        <span class="font-display text-2xl uppercase text-white/60 md:text-3xl">Session #{s.n}</span>
         <a href="https://wa.me/5492235298014?text=Av%C3%ADsenme%20cuando%20salga%20la%20Session%20%234" target="_blank" rel="noopener" class="underline underline-offset-4">Avísenme</a>
       </li>
     ))}
