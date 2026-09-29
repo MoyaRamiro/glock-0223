@@ -106,6 +106,24 @@ test('imagenes responsive y sin paths legacy', opciones, () => {
   }
 });
 
+test('todo srcset declara el ancho real en sizes, no una estimacion en vw', () => {
+  // Un sizes mentiroso hace que el navegador descargue una variante mayor que la
+  // caja real: con 42vw sobre un contenedor de max-w-6xl se sirvio la de 800w
+  // para una caja de 448px y se desperdiciaba el 68-76% de los bytes.
+  const html = readFileSync(join(dist, 'index.html'), 'utf8');
+  const tags = html.match(/<img[^>]*>/g) ?? [];
+  const responsive = tags.filter((t) => t.includes('src="/_astro/') && t.includes('srcset='));
+  assert.ok(responsive.length >= 4, `se esperaban imagenes responsive, hay ${responsive.length}`);
+  for (const tag of responsive) {
+    const sizes = tag.match(/sizes="([^"]+)"/)?.[1];
+    assert.ok(sizes, `srcset sin sizes: ${tag.slice(0, 90)}`);
+    // Hay que mirar el valor, no la media query: "768px" dentro de
+    // "(min-width: 768px)" no dice nada del ancho real de la caja.
+    const valores = sizes.replace(/\([^)]*\)/g, '');
+    assert.match(valores, /(^|[\s,])\d+px($|[\s,])/, `sizes sin ancho en px: "${sizes}"`);
+  }
+});
+
 test('la imagen OG existe y es valida', opciones, () => {
   const og = join(dist, 'images/og-glock.jpg');
   assert.ok(existsSync(og), 'falta dist/images/og-glock.jpg');

@@ -1,7 +1,7 @@
 {
   "ci": {
     "collect": {
-      "url": ["http://localhost:4321/", "http://localhost:4321/404"],
+      "url": ["http://localhost:4321/"],
       "startServerCommand": "npx astro preview --port 4321",
       "startServerReadyPattern": "Local",
       "numberOfRuns": 3,
@@ -20,7 +20,7 @@
         "largest-contentful-paint": ["error", { "maxNumericValue": 2500 }],
         "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1 }],
         "total-blocking-time": ["error", { "maxNumericValue": 200 }],
-        "uses-responsive-images": "error",
+        "uses-responsive-images": "warn",
         "offscreen-images": "error",
         "unsized-images": "error",
         "document-title": "error",

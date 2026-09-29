@@ -2,6 +2,8 @@
 import '../styles/global.css';
 import '@fontsource/barlow-condensed/latin-600.css';
 import '@fontsource/barlow-condensed/latin-700.css';
+import woff2_600 from '@fontsource/barlow-condensed/files/barlow-condensed-latin-600-normal.woff2?url';
+import woff2_700 from '@fontsource/barlow-condensed/files/barlow-condensed-latin-700-normal.woff2?url';
 import { SITE, SITE_NAME } from '../site';
 
 interface Props { title: string; description: string; noindex?: boolean }
@@ -18,6 +20,8 @@ const ogImage = new URL('/images/og-glock.jpg', SITE).toString();
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preload" href={woff2_700} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={woff2_600} as="font" type="font/woff2" crossorigin />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content={SITE_NAME} />
     <meta property="og:title" content={title} />

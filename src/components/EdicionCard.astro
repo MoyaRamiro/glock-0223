@@ -22,7 +22,7 @@ const foto = getImage(p.foto);
           src={foto}
           alt={p.fotoAlt ?? `Foto en vivo de GLOCK #${p.n}`}
           widths={[480, 800, 1200, 1600]}
-          sizes="(min-width: 768px) 42vw, 100vw"
+          sizes="(min-width: 1184px) 448px, (min-width: 768px) 38vw, calc(100vw - 2rem)"
           loading={p.eager ? 'eager' : 'lazy'}
           fetchpriority={p.eager ? 'high' : 'auto'}
           decoding={p.eager ? 'sync' : 'async'}
@@ -37,7 +37,7 @@ const foto = getImage(p.foto);
             src={getImage(p.flyer)!}
             alt={p.flyerAlt}
             widths={[400, 800]}
-            sizes="(min-width: 768px) 42vw, 100vw"
+            sizes="(min-width: 1184px) 448px, (min-width: 768px) 38vw, calc(100vw - 2rem)"
             loading="lazy"
             class="col-start-1 row-start-1 h-auto w-full object-cover"
           />

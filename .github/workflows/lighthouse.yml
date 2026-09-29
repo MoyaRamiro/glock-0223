@@ -57,3 +57,11 @@ jobs:
         with:
           configPath: ./lighthouserc.json
           uploadArtifacts: false
+      # Notas sobre los asserts de lighthouserc.json:
+      # - Se audita solo "/". El 404 lleva noindex a proposito, asi que exigirle
+      #   "is-crawlable" daria falso positivo; su cobertura esta en los tests.
+      # - "uses-responsive-images" queda en warn: el unico remanente es el
+      #   thumbnail de YouTube (maxresdefault, 1280x720) en una caja de 1120x630.
+      #   YouTube no ofrece un 16:9 mas chico que eso, asi que el 23% es
+      #   irreducible sin reducir el diseno. Las imagenes propias, si, se
+      #   verifican con error via los tests de contenido.

@@ -13,7 +13,7 @@ const flyers = data.songwars.map((s) => ({ ...s, img: getImage(s.flyer) }));
         <div class="md:col-span-5">
           <a href={s.post} target="_blank" rel="noopener" aria-label={`Ver post del flyer de SongWars vol.${s.vol} en Instagram`} class="grid max-w-md place-items-center bg-[#0A0A0A] md:rotate-1">
             <span class="col-start-1 row-start-1 p-4 text-center font-display text-4xl font-bold uppercase">Songwars vol.{s.vol}</span>
-            {s.img && <Image src={s.img} alt={s.flyerAlt} widths={[400, 600, 800]} sizes="(min-width: 768px) 42vw, 100vw" loading="lazy" decoding="async" class="col-start-1 row-start-1 h-auto w-full object-cover" />}
+            {s.img && <Image src={s.img} alt={s.flyerAlt} widths={[400, 600, 800]} sizes="(min-width: 1184px) 448px, (min-width: 768px) 38vw, calc(100vw - 2rem)" loading="lazy" decoding="async" class="col-start-1 row-start-1 h-auto w-full object-cover" />}
           </a>
         </div>
         <div class="md:col-span-7">
