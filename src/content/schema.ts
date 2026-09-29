@@ -7,6 +7,13 @@ const localImage = z
 
 const fecha = z.string().regex(/^\d{2}\/\d{2}$/, 'formato dd/mm');
 
+// Fecha de subida de un video de YouTube. Va en ISO completo (no dd/mm) porque
+// `uploadDate` del JSON-LD la consume un parser, no una persona.
+const fechaIso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'formato aaaa-mm-dd');
+
+// Duracion en ISO 8601, como la que publica YouTube en `lengthSeconds`.
+const duracionIso = z.string().regex(/^PT(\d+H)?(\d+M)?(\d+S)?$/, 'formato ISO 8601 (PT26M34S)');
+
 const youtube = z.url().refine((u) => /youtube\.com\/watch\?v=|youtu\.be\//.test(u), {
   message: 'no parece una URL de YouTube',
 });
@@ -85,6 +92,8 @@ export const glockSchema = z
             n: z.number().int().positive(),
             yt: z.string(),
             estado: z.enum(['publicada', 'editandose']),
+            subido: fechaIso.optional(),
+            duracion: duracionIso.optional(),
           })
           .strict()
           .superRefine((s, ctx) => {
@@ -94,6 +103,14 @@ export const glockSchema = z
             if (s.estado === 'publicada') {
               const r = youtube.safeParse(s.yt);
               if (!r.success) ctx.addIssue({ code: 'custom', path: ['yt'], message: 'URL de YouTube invalida' });
+              // Google exige `uploadDate` y recomienda `duration` para rich
+              // results de video. Sin esto el VideoObject queda incompleto.
+              if (!s.subido) {
+                ctx.addIssue({ code: 'custom', path: ['subido'], message: 'una session publicada necesita la fecha de subida para el JSON-LD' });
+              }
+              if (!s.duracion) {
+                ctx.addIssue({ code: 'custom', path: ['duracion'], message: 'una session publicada necesita la duracion para el JSON-LD' });
+              }
             } else if (s.yt) {
               ctx.addIssue({ code: 'custom', path: ['yt'], message: 'una session sin publicar no deberia tener URL de YouTube' });
             }

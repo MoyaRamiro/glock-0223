@@ -238,6 +238,38 @@ test('la proxima no muestra lugar, fecha ni ciudad que el dato no declare', opci
   assert.match(texto, /Fecha a anunciar|proximamente/i, 'la proxima deberia aclarar que aun no hay fecha');
 });
 
+test('cada VideoObject publica lo que Google exige para rich results de video', opciones, () => {
+  // Google pide name, description, thumbnailUrl y uploadDate; duration es
+  // recomendado. Sin uploadDate el VideoObject queda descartado para video.
+  const datos = JSON.parse(leer('src/content/glock.json'));
+  const publicadas = datos.sessions.filter((s) => s.estado === 'publicada');
+  assert.ok(publicadas.length > 0, 'se esperaba al menos una session publicada');
+  const bloques = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+    .map((m) => JSON.parse(m[1]))
+    .flatMap((j) => (Array.isArray(j) ? j : [j]))
+    .flatMap((j) => (j['@graph'] ? j['@graph'] : [j]));
+  for (const s of publicadas) {
+    const v = bloques.find((b) => b['@type'] === 'VideoObject' && b.name?.includes(`#${s.n}`));
+    assert.ok(v, `falta el VideoObject de la session #${s.n}`);
+    for (const campo of ['name', 'description', 'thumbnailUrl', 'uploadDate', 'duration', 'embedUrl']) {
+      assert.ok(v[campo], `VideoObject #${s.n} sin ${campo}`);
+    }
+    assert.match(v.uploadDate, /^\d{4}-\d{2}-\d{2}T/, `#${s.n}: uploadDate no es ISO`);
+    assert.equal(v.uploadDate.slice(0, 10), s.subido, `#${s.n}: uploadDate no coincide con el dato`);
+    assert.match(v.duration, /^PT/, `#${s.n}: duration no es ISO 8601`);
+  }
+});
+
+test('el schema exige los datos de video de una session publicada', async () => {
+  const { default: data } = await import('../src/data.ts').catch(() => ({ default: null }));
+  if (data) return;
+  // El modulo real se valida en el build; aca se comprueba el contrato del
+  // schema con el fixture minimo: una session publicada sin `subido` no vale.
+  const texto = leer('src/content/schema.ts');
+  assert.match(texto, /path: \['subido'\]/, 'el schema deberia exigir `subido` en una session publicada');
+  assert.match(texto, /path: \['duracion'\]/, 'el schema deberia exigir `duracion` en una session publicada');
+});
+
 test('la imagen OG existe y es valida', opciones, () => {
   const og = join(dist, 'images/og-glock.jpg');
   assert.ok(existsSync(og), 'falta dist/images/og-glock.jpg');

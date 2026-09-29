@@ -90,9 +90,9 @@
     { "nombre": "PIPPER", "ig": "https://www.instagram.com/pippertypebeat/" }
   ],
   "sessions": [
-    { "n": 1, "yt": "https://www.youtube.com/watch?v=SGWKBFfL4XE", "estado": "publicada" },
-    { "n": 2, "yt": "https://www.youtube.com/watch?v=qSjPJW9Fa_o", "estado": "publicada" },
-    { "n": 3, "yt": "https://www.youtube.com/watch?v=bvaBQ7Y_bEE", "estado": "publicada" },
+    { "n": 1, "yt": "https://www.youtube.com/watch?v=SGWKBFfL4XE", "estado": "publicada", "subido": "2025-11-23", "duracion": "PT26M34S" },
+    { "n": 2, "yt": "https://www.youtube.com/watch?v=qSjPJW9Fa_o", "estado": "publicada", "subido": "2026-01-24", "duracion": "PT19M55S" },
+    { "n": 3, "yt": "https://www.youtube.com/watch?v=bvaBQ7Y_bEE", "estado": "publicada", "subido": "2026-04-25", "duracion": "PT23M13S" },
     { "n": 4, "yt": "", "estado": "editandose" }
   ],
   "songwars": [

@@ -114,7 +114,12 @@ export function websiteJsonLd(): object {
   };
 }
 
-export interface SessionLd { n: number; yt: string }
+export interface SessionLd {
+  n: number;
+  yt: string;
+  subido?: string;
+  duracion?: string;
+}
 
 export function videosJsonLd(sessions: SessionLd[]): object[] {
   return sessions
@@ -126,6 +131,11 @@ export function videosJsonLd(sessions: SessionLd[]): object[] {
       description: `Cypher Session #${s.n} de GLOCK Shows & Cypher: ronda cypher de rap en Mar del Plata.`,
       thumbnailUrl: `https://i.ytimg.com/vi/${ytId(s.yt)}/hqdefault.jpg`,
       embedUrl: `https://www.youtube.com/embed/${ytId(s.yt)}`,
+      // `uploadDate` lo exige Google para rich results de video; `duration` es
+      // recomendado. Solo se emiten si el contenido los declara, igual que
+      // endDate en los shows: no se rellena con datos inventados.
+      ...(s.subido ? { uploadDate: `${s.subido}T00:00:00-03:00` } : {}),
+      ...(s.duracion ? { duration: s.duracion } : {}),
       inLanguage: 'es-AR',
     }));
 }
