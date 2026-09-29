@@ -932,7 +932,7 @@ test('el lead no consume indice en la pasada de escalonado', opciones, () => {
   // item se ubique, porque despues ya se le asigno un indice.
   assert.match(
     src.slice(ini, i),
-    /(?<![!=])===\s*['"]lead['"]\s*\)[^;{]*(?:continue\b|;)/,
+    /(?<![!=])===\s*['"]lead['"]\s*\)[^;{]*continue\b/,
     'la pasada de indices no saltea el lead: el lead toma el indice 0 y todos los items de su scope arrancan 60ms tarde',
   );
 });
