@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
@@ -414,6 +414,103 @@ test('hay un skip link que apunta al main (WCAG 2.4.1)', opciones, () => {
   assert.ok(
     /<main[^>]+id="contenido"/i.test(html),
     'el skip link apunta a #contenido pero el main no tiene ese id',
+  );
+});
+
+test('el texto real del sitio pasa contraste AA (WCAG 1.4.3)', opciones, () => {
+  // Los colores se leen del HTML construido, no de una lista escrita a mano.
+  // Una version anterior hacia la cuenta sobre hex dentro del propio test, asi
+  // que era una tautologia: ningun cambio real del sitio la podia romper.
+  const srgb = (c) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  const lum = ([r, g, b]) => 0.2126 * srgb(r) + 0.7152 * srgb(g) + 0.0722 * srgb(b);
+  const ratio = (a, b) => {
+    const [hi, lo] = lum(a) > lum(b) ? [lum(a), lum(b)] : [lum(b), lum(a)];
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const PAGINA_BG = hex('#0A0A0A');
+  const BLANCO = [255, 255, 255];
+  const alpha = (fg, bg, a) => fg.map((c, i) => Math.round(c * a + bg[i] * (1 - a)));
+
+  // `.skip-link` y `.btn-glock` definen su color y su fondo en el CSS, no con
+  // clases utilitarias, asi que hay que leerlos de ahi. Si se asumiera el
+  // fondo de la pagina, el skip link (negro sobre magenta) mediria 1.00 y el
+  // boton (hueso sobre negro) mediria una combinacion que no existe.
+  const cssDir = join(dist, '_astro');
+  const css = readdirSync(cssDir)
+    .filter((f) => f.endsWith('.css'))
+    .map((f) => readFileSync(join(cssDir, f), 'utf8'))
+    .join('\n');
+  const desdeCss = (clase) => {
+    const regla = new RegExp(`\\.${clase}\\s*\\{([^}]*)\\}`).exec(css);
+    if (!regla) return null;
+    const color = /(?:^|;)\s*color:\s*(#[0-9a-f]{6})/i.exec(regla[1]);
+    const bg = /(?:^|;)\s*background:\s*(#[0-9a-f]{6})/i.exec(regla[1]);
+    return { fg: color ? hex(color[1]) : null, bg: bg ? hex(bg[1]) : null };
+  };
+
+  // Un par solo cuenta si el MISMO elemento lleva color de texto y de fondo.
+  // Si solo lleva texto, el fondo real es el de la pagina; si solo lleva
+  // fondo, el texto real es el que hereda del body. Nunca inventamos anidamiento.
+  const pares = new Map();
+  // Ojo con el destructuring: el match es [full, tag, attrs], asi que el
+  // atributo es el TERCER elemento.
+  for (const [, , attrs] of html.matchAll(/<(\w+)([^>]*)>/g)) {
+    const hexText = /text-\[#([0-9a-f]{6})\]/i.exec(attrs);
+    const whiteA = /text-white\/(\d{1,3})\b/.exec(attrs);
+    const black = /\btext-black\b/.test(attrs);
+    const btn = /\bbtn-glock\b/.test(attrs);
+    const skip = /\bskip-link\b/.test(attrs);
+    const hexBg = /bg-\[#([0-9a-f]{6})\]/i.exec(attrs);
+    if (!hexText && !whiteA && !black && !btn && !skip) continue;
+
+    let fg = null;
+    let txt = '';
+    let bg = hexBg ? hex(`#${hexBg[1]}`) : PAGINA_BG;
+    if (hexText) { fg = hex(`#${hexText[1]}`); txt = `text-[#${hexText[1]}]`; }
+    else if (whiteA) { const a = +whiteA[1] / 100; fg = alpha(BLANCO, PAGINA_BG, a); txt = `text-white/${whiteA[1]}`; }
+    else if (black) { fg = hex('#0A0A0A'); txt = 'text-black'; }
+    else if (skip || btn) {
+      const real = desdeCss(skip ? 'skip-link' : 'btn-glock');
+      if (!real || !real.fg) continue;
+      fg = real.fg;
+      txt = skip ? '.skip-link' : '.btn-glock';
+      if (real.bg) bg = real.bg;
+    }
+
+    const k = `${txt} sobre ${hexBg ? `bg-[#${hexBg[1]}]` : skip ? 'fondo de .skip-link' : btn ? 'fondo de .btn-glock' : 'fondo de pagina'}`;
+    if (!pares.has(k)) pares.set(k, { fg, bg, r: ratio(fg, bg) });
+  }
+
+  assert.ok(pares.size >= 6, `solo ${pares.size} pares de color detectados`);
+  const fallas = [...pares].filter(([, v]) => v.r < 4.5).map(([k, v]) => `${k}: ${v.r.toFixed(2)}`);
+  assert.deepEqual(fallas, [], 'contraste insuficiente');
+});
+
+test('el foco visible y reduced-motion estan declarados', opciones, () => {
+  const cssDir = join(dist, '_astro');
+  const css = readdirSync(cssDir)
+    .filter((f) => f.endsWith('.css'))
+    .map((f) => readFileSync(join(cssDir, f), 'utf8'))
+    .join('\n');
+  assert.ok(css.length > 0, 'no se encontro CSS compilado');
+  assert.ok(/:focus-visible/.test(css), 'falta :focus-visible');
+  assert.ok(/prefers-reduced-motion/.test(css), 'falta prefers-reduced-motion');
+
+  // El anillo de foco no se puede anular. La version anterior buscaba
+  // `outline:none;` con punto y coma, pero el CSS minificado deja
+  // `outline:none}` y la guarda no detectaba nada.
+  const sinNuestro = css.replaceAll(/main:focus\{outline:none\}/g, '');
+  const anulados = [...sinNuestro.matchAll(/([^{}]*)\{([^}]*outline:\s*(?:none|0)\s*[;}])[^}]*\}/g)]
+    .map((m) => m[1].trim())
+    .filter((sel) => sel && !/^main:focus$/.test(sel));
+  assert.deepEqual(anulados, [], `outline anulado en: ${anulados.join(', ')}`);
+  assert.ok(
+    /:focus-visible\s*\{[^}]*outline:\s*(?!none|0\b)[^;}]+[;}]/.test(sinNuestro),
+    ':focus-visible no declara un outline visible',
   );
 });
 
