@@ -632,7 +632,11 @@ test('prefers-reduced-motion no deja el wipe a medias', opciones, () => {
 
 test('el motion solo toca propiedades que no mueven la pagina', opciones, () => {
   // Cualquier propiedad de layout (height, top, margin, width...) genera CLS.
-  const css = leer('src/styles/global.css');
+  // El repo no tiene .gitattributes, asi que un checkout fresco en Windows trae
+  // CRLF y el literal de abajo, que lleva \n duro, no matchearia. Normalizamos
+  // al leer para que el test dependa del contenido y no de como quedo el
+  // checkout.
+  const css = leer('src/styles/global.css').replace(/\r\n/g, '\n');
   const inicio = css.indexOf('/* ------------------------------------------------------------------ *\n * MOTION');
   assert.ok(inicio > 0, 'no se encuentra el bloque MOTION');
   const bloque = css.slice(inicio, css.indexOf('@media (prefers-reduced-motion: reduce)', inicio));
