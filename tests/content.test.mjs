@@ -168,7 +168,7 @@ test('todo show que cruza la medianoche declara endDate al dia siguiente', opcio
   }
 });
 
-test('el precio viaja al JSON-LD como numero plano en pesos', opciones, () => {
+test('el precio viaja al JSON-LD como entero plano, sin signo ni separador', opciones, () => {
   const datos = JSON.parse(leer('src/content/glock.json'));
   const conPrecio = datos.ediciones.filter((e) => typeof e.precio === 'number');
   assert.ok(conPrecio.length > 0, 'se esperaba al menos una edicion con precio');
@@ -176,14 +176,19 @@ test('el precio viaja al JSON-LD como numero plano en pesos', opciones, () => {
     .map((m) => JSON.parse(m[1]))
     .flatMap((j) => (Array.isArray(j) ? j : [j]))
     .flatMap((j) => (j['@graph'] ? j['@graph'] : [j]));
-  for (const e of conPrecio) {
-    const ev = bloques.find((b) => b['@type'] === 'MusicEvent' && b.name?.includes(`#${e.n}`));
-    assert.ok(ev?.offers, `falta offers en #${e.n}`);
-    assert.equal(ev.offers['@type'], 'Offer');
-    assert.equal(ev.offers.price, String(e.precio), `#${e.n}: precio ${ev.offers.price} != ${e.precio}`);
-    assert.equal(ev.offers.priceCurrency, 'ARS');
-  }
-});
+    for (const e of conPrecio) {
+      const ev = bloques.find((b) => b['@type'] === 'MusicEvent' && b.name?.includes(`#${e.n}`));
+      assert.ok(ev?.offers, `falta offers en #${e.n}`);
+      assert.equal(ev.offers['@type'], 'Offer');
+      assert.equal(ev.offers.priceCurrency, 'ARS');
+      // schema.org acepta Number o Text para price. Lo que no tolera es un
+      // precio formateado ("$10.000", "10.000,00"): los parsers lo toman por
+      // texto y pierden el monto. Se verifica la forma, no el tipo JS.
+      const p = String(ev.offers.price);
+      assert.match(p, /^\d+$/, `#${e.n}: precio "${p}" no es un entero plano`);
+      assert.equal(Number(p), e.precio, `#${e.n}: precio ${p} != ${e.precio}`);
+    }
+  });
 
 test('la hora y el precio de cada edicion se ven en la pagina, no solo en el JSON-LD', opciones, () => {
   // Dato que solo vive en los metadatos no le sirve a nadie: el visitante llega
