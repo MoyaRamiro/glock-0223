@@ -669,3 +669,41 @@ test('el reveal tiene red de seguridad si el modulo no carga', opciones, () => {
   );
   assert.match(clasicos, /classList\.add\(\s*['"]js-reveal['"]\s*\)/, 'el script sincrono es el que habilita el gate .js-reveal');
 });
+
+test('lead e item arrancan ocultos solo con el gate .js-reveal', opciones, () => {
+  // El wipe de lead y el rise de item son los dos estados iniciales del
+  // reveal. Si uno se declara sin el gate, un fallo de red deja esa parte de
+  // la pagina en blanco para siempre.
+  const css = leer('src/styles/global.css');
+  const ocultos = [...css.matchAll(/([^{}]*\[data-reveal[^\]]*\][^{}]*)\{([^}]*)\}/g)]
+    .filter(([, , cuerpo]) => /opacity:\s*0|clip-path:\s*inset\(0 100%/.test(cuerpo))
+    .map(([, sel]) => sel.trim());
+  assert.ok(ocultos.length >= 2, `se esperaban al menos 2 estados iniciales, hay ${ocultos.length}`);
+  for (const sel of ocultos) {
+    assert.ok(sel.includes('.js-reveal'), `este estado inicial oculta sin el gate: ${sel}`);
+  }
+});
+
+test('el rise de los items usa solo propiedades que no mueven la pagina', opciones, () => {
+  const css = leer('src/styles/global.css');
+  const i = css.indexOf('.js-reveal [data-reveal="item"]');
+  assert.ok(i > 0, 'no existe la regla de estado inicial del item');
+  // Del selector hasta el proximo @media: cubre el rise, el hover de
+  // misalign, los botones y el flyer. Todos tienen que seguir limpios.
+  const bloque = css.slice(i, css.indexOf('@media', i));
+  assert.match(bloque, /opacity:\s*0/, 'el item no arranca con opacity 0');
+  assert.match(bloque, /transform:\s*translateY/, 'el item no arranca con translateY');
+  assert.match(bloque, /--reveal-delay/, 'el item no lee el retardo que escribe motion.ts');
+  for (const prop of ['height', 'top', 'bottom', 'left', 'margin', 'padding', 'width']) {
+    assert.ok(!new RegExp(`\\b${prop}\\s*:`).test(bloque), `el rise declara ${prop}, que genera layout shift`);
+  }
+});
+
+test('el item neutraliza el clip del lead', opciones, () => {
+  // `.js-reveal [data-reveal]` tambien matchea a los items: si el item no
+  // anula el clip-path, arranca con el wipe y nunca se abre del todo.
+  const css = leer('src/styles/global.css');
+  const i = css.indexOf('.js-reveal [data-reveal="item"]');
+  const bloque = css.slice(i, css.indexOf('@media', i));
+  assert.match(bloque, /clip-path:\s*none/, 'el item hereda el clip del lead y queda incompleto');
+});

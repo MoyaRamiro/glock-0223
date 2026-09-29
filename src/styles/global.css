@@ -6,6 +6,9 @@
   --glock-violet: #4B0055;
   --glock-magenta: #C400FF;
   --glock-ink: #120312;
+  /* Un solo easing para todo el reveal. Si el wipe y el rise usaran curvas
+     distintas, el escalonado se leeria como dos animaciones pegadas. */
+  --ease-glock: cubic-bezier(0.22, 0.7, 0.2, 1);
 }
 
 html { scroll-behavior: smooth; }
@@ -154,14 +157,31 @@ a.tag:hover { background: #F5F1E8; color: #0A0A0A; border-color: #F5F1E8; }
  *    el elemento se queda invisible para siempre.
  * ------------------------------------------------------------------ */
 
-/* 1. Wipe de entrada. La transition vive en `.is-in` para que solo corra
-      cuando el observer agrega la clase, no en cada repintado. */
+/* 1. Reveal de entrada. La transition vive en `.is-in` para que solo corra
+      cuando el observer agrega la clase, no en cada repintado.
+
+      lead = wipe con clip-path. item = rise con translateY + opacity. Mismo
+      easing, misma duracion, misma direccion: es un solo lenguaje con roles,
+      no dos efectos distintos. El retardo de los items lo escribe motion.ts
+      en --reveal-delay; lead nunca lo lleva. */
 .js-reveal [data-reveal] {
   clip-path: inset(0 100% 0 0);
 }
 .js-reveal [data-reveal].is-in {
   clip-path: inset(0 0 0 0);
-  transition: clip-path 0.5s cubic-bezier(0.22, 0.7, 0.2, 1);
+  transition: clip-path 0.5s var(--ease-glock);
+}
+.js-reveal [data-reveal="item"] {
+  clip-path: none;
+  opacity: 0;
+  transform: translateY(10px);
+}
+.js-reveal [data-reveal="item"].is-in {
+  clip-path: none;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.5s var(--ease-glock), transform 0.5s var(--ease-glock);
+  transition-delay: var(--reveal-delay, 0ms);
 }
 
 /* 2. Misregistration: en hover el texto se desalinea en magenta, como una
