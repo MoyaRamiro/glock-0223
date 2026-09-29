@@ -736,10 +736,11 @@ test('el observer cubre los reveals sueltos, no solo los scopes', opciones, () =
   // El fallo mas caro posible en este sitio: un [data-reveal] fuera de todo
   // scope se queda invisible para siempre porque nadie lo observa.
   const src = leer('src/scripts/motion.ts');
-  assert.match(src, /closest\(\s*['"]\[data-reveal-scope\]['"]\s*\)/, 'no separa los reveals sueltos');
-  assert.match(src, /--reveal-delay/, 'no escribe el retardo que el CSS lee');
+  // `closest` sigue en el modulo, pero para ubicar cada item dentro de su scope y
+  // sacarle el indice. Lo que no puede volver a aparecer es un reveal excluido
+  // del grupo observado: eso lo vigila el test del contrato de observacion.
+  assert.match(src, /closest\(\s*['"]\[data-reveal-scope\]['"]\s*\)/, 'el modulo dejo de ubicar cada item en su scope');
   assert.match(src, /getBoundingClientRect/, 'se perdio la red de seguridad propia');
-  assert.match(src, /_glockFailSafe/, 'se perdio la cancelacion del failsafe');
 });
 
 test('el retardo que escribe el modulo lleva sus unidades', opciones, () => {
@@ -751,13 +752,33 @@ test('el retardo que escribe el modulo lleva sus unidades', opciones, () => {
   // El valor se lee hasta el `);` de la llamada, no hasta el primer parentesis:
   // el retardo escalonado es `Math.min(...)` y cortarlo ahi lo truncaria.
   const escrituras = [...src.matchAll(/setProperty\(\s*['"]--reveal-delay['"]\s*,\s*([\s\S]*?)\);/g)];
-  assert.ok(escrituras.length >= 2, `se esperaban al menos 2 escrituras del retardo, hay ${escrituras.length}`);
+  // Toda escritura tiene que ser visible para el patron de arriba. Comparar
+  // contra el total en vez de contra un numero fijo evita codificar una suposicion
+  // sobre cuantas llamadas hay: si alguien extrae un helper o escribe el retardo
+  // de otra forma, el conteo lo delata en vez de dejarlo pasar en silencio.
+  const totales = (src.match(/setProperty\(\s*['"]--reveal-delay['"]/g) ?? []).length;
+  assert.ok(totales > 0, 'el modulo no escribe ningun retardo');
+  assert.equal(
+    escrituras.length,
+    totales,
+    `solo ${escrituras.length} de ${totales} escrituras de --reveal-delay se pueden verificar: alguna se escapa del patron y podria ir sin unidad`,
+  );
   for (const [, valor] of escrituras) {
     assert.match(
       valor.trim(),
       /ms['"`]?$/,
       `el retardo "${valor.trim()}" no lleva unidad: transition-delay quedaria invalido y el escalonado no se veria`,
     );
+  }
+
+  // El retardo tambien se arma mucho antes de escribirse, al calcular el indice
+  // de cada item. Si ese numero saliera sin unidad, el `setProperty` lo escribiria
+  // igual y el chequeo de arriba no lo veria nunca: el retardo ya llego sin `ms`.
+  // Por eso se mira tambien el punto donde se calcula, no solo donde se escribe.
+  const calculos = [...src.matchAll(/`[^`]*\$\{[^}]*(?:PASO_MS|TOPE_MS)[^}]*\}[^`]*`/g)];
+  assert.ok(calculos.length > 0, 'no se encuentra el calculo del retardo por indice');
+  for (const [valor] of calculos) {
+    assert.match(valor, /ms`$/, `"${valor}" calcula el retardo sin unidad: llegaria sin ms al elemento`);
   }
 });
 
@@ -775,15 +796,34 @@ test('el modulo cancela el failsafe del head, no solo lo declara', opciones, () 
 });
 
 test('el reveal suelto se muestra: la rama sin scope tambien pone .is-in', opciones, () => {
-  // Un `[data-reveal]` fuera de todo scope entra por `activarUno`. Si esa rama
-  // no lo muestra, el elemento se queda con `opacity: 0` y el clip cerrado para
-  // siempre: invisible sin error, justo lo que el gate entero existe para evitar.
+  // Un `[data-reveal]` fuera de todo scope entra con el retardo por default. Si
+  // esa rama no lo muestra, el elemento se queda con `opacity: 0` y el clip
+  // cerrado para siempre: invisible sin error, justo lo que el gate entero
+  // existe para evitar.
+  //
+  // La rama se ancla en el literal `0ms`, que es como se la reconoce, y no en el
+  // nombre de la funcion que la contiene: ese nombre es un helper privado y no
+  // uno de los contratos del plan, asi que un rename inocuo no debe romper esto.
   const src = leer('src/scripts/motion.ts');
-  const i = src.indexOf('activarUno = ');
-  assert.ok(i > 0, 'no se encontro la rama de los reveals sueltos');
-  const ini = src.indexOf('{', i);
+  const i = src.indexOf("'0ms'");
+  assert.ok(i > 0, 'no se encontro la rama que escribe el retardo por default');
+  // Se busca la llave que realmente enclosea al literal, hacia atras y con
+  // profundidad: un simple `lastIndexOf('{')` caeria en la llave de un bloque ya
+  // cerrado (el `if` del lead) y el recorte saldria vacio.
+  let ini = i;
   let prof = 0;
+  for (let j = i; j >= 0; j--) {
+    if (src[j] === '}') prof++;
+    else if (src[j] === '{') {
+      if (prof === 0) {
+        ini = j;
+        break;
+      }
+      prof--;
+    }
+  }
   let fin = src.length;
+  prof = 0;
   for (let j = ini; j < src.length; j++) {
     if (src[j] === '{') prof++;
     else if (src[j] === '}' && --prof === 0) {
@@ -791,10 +831,49 @@ test('el reveal suelto se muestra: la rama sin scope tambien pone .is-in', opcio
       break;
     }
   }
-  const cuerpo = src.slice(ini, fin);
+  // Se mira lo que viene DESPUES del literal: el `mostrar` del lead queda antes,
+  // asi que no puede hacer de testigo de una rama que dejo de revelar.
+  const despues = src.slice(i, fin);
   assert.match(
-    cuerpo,
+    despues,
     /mostrar\([^)]*\)|classList\.add\(\s*['"]is-in['"]\s*\)/,
     'la rama del reveal suelto no muestra el elemento: quedaria invisible para siempre',
+  );
+});
+
+test('el observer observa cada [data-reveal] y nunca a los scopes', opciones, () => {
+  // El grupo observado tiene que ser exactamente todos los `[data-reveal]`.
+  // Filtrarlo con un `closest` es como un reveal (hermano de su scope, montado
+  // despues del init) queda oculto para siempre: el CSS lo esconde, el modulo
+  // no lo observa y el failsafe ya fue cancelado, asi que no queda red que lo
+  // delate. Ademas, observar el scope entero revelaria sus items de abajo
+  // fuera de pantalla y el escalonado no se veria.
+  //
+  // LIMITACION CONOCIDA: esto sigue siendo un grep. Un observer por elemento y
+  // uno por scope son los dos TypeScript valido, asi que este test verifica la
+  // forma del grupo observado, no el comportamiento en el navegador. Para
+  // verificar eso de verdad habria que ejecutar el modulo contra un DOM simulado,
+  // y ese harness todavia no existe en este repo. Queda como Minor abierto.
+  const src = leer('src/scripts/motion.ts');
+  const decl = /const\s+(\w+)\s*=\s*document\.querySelectorAll<HTMLElement>\(\s*['"]\[data-reveal\]\s*['"]\s*\)/.exec(src);
+  assert.ok(decl, 'no se encuentra la coleccion de reveals que alimenta al observer');
+  // El nombre se resuelve en tiempo de test: renombrar la variable no lo rompe.
+  const observe = /[\w$]+\.observe\(/.exec(src);
+  assert.ok(observe && observe.index > decl.index, 'la coleccion de reveals no es la que se observa');
+  // Y cada reveal se observa TAL CUAL. El argumento tiene que ser el elemento
+  // de la coleccion, no algo derivado de el: un `.filter` al armar la lista, o
+  // un `closest` al observar, dejan reveals fuera del grupo sin que nada lo diga.
+  // Se toma la sentencia completa del `observe` para que el filtro caiga dentro
+  // del chequeo tanto si viene en la lista como si viene en el argumento.
+  const hasta = src.indexOf(';', observe.index);
+  assert.match(
+    src.slice(observe.index, hasta + 1),
+    /\.observe\(\s*\w+\s*\)/,
+    'el observer no recibe el reveal tal cual: un filtro o un closest ahi deja elementos fuera del grupo y para siempre ocultos',
+  );
+  // Y ningun grupo se construye sobre scopes: el scope no es unidad de observacion.
+  assert.ok(
+    !/querySelectorAll[^;]*\(\s*['"]\[data-reveal-scope\]/.test(src),
+    'el grupo observado se construye sobre scopes: un scope alto se revelaria entero fuera de pantalla',
   );
 });

@@ -27,73 +27,92 @@ if (doc._glockFailSafe !== undefined) {
   delete doc._glockFailSafe;
 }
 
-/** Saca el estado inicial a mano. El observer no los revela. */
+/** Saca el estado inicial. Quien decide cuando se muestra es `activar`. */
 const mostrar = (el: Element) => el.classList.add('is-in');
 
-/** Activa un reveal suelto: sin escalonado, entra ya. */
-const activarUno = (el: HTMLElement) => {
-  el.style.setProperty('--reveal-delay', '0ms');
-  mostrar(el);
-};
+/**
+ * Todos los reveals del documento, en orden, y se observan uno por uno.
+ *
+ * El scope agrupa el escalonado, no decide el momento de la animacion. Mirar el
+ * scope entero lo revelaria de golpe al cruzar su borde superior, y los items
+ * de abajo correrian su transicion fuera de pantalla, donde el escalonado no
+ * se ve. Por eso el grupo observado son los elementos individuales.
+ *
+ * Ademas, ningun reveal puede quedar fuera del grupo: uno que no cae dentro de
+ * ningun scope, o que se monte despues del init, lo deja el CSS oculto y sin
+ * observer nadie lo vuelve a mostrar. Como el failsafe ya fue cancelado arriba,
+ * ese fallo no tendria ni una red de seguridad que lo delatara.
+ */
+const reveals = document.querySelectorAll<HTMLElement>('[data-reveal]');
 
 /**
- * Activa un scope: el lead entra sin retardo y los items detrás, escalonados.
- * Todos reciben `.is-in` en el mismo instante; el escalonado real lo hace el
- * `transition-delay` del CSS leyendo `--reveal-delay`.
+ * El retardo de cada item se calcula una sola vez, al cargar y en una sola
+ * pasada: el lugar que ocupa entre los items de su propio scope. El scope solo
+ * agrupa; el orden del documento ya los recorre de arriba hacia abajo.
  */
-const activarScope = (raiz: HTMLElement) => {
-  let posicion = 0;
-  for (const el of raiz.querySelectorAll<HTMLElement>('[data-reveal]')) {
+const retardos = new Map<Element, string>();
+const vistos = new Map<Element, number>();
+for (const el of reveals) {
+  if (el.dataset.reveal === 'lead') continue;
+  const ambito = el.closest('[data-reveal-scope]');
+  // Sin scope no hay escalonado que aplicar: lo resuelve el default del CSS.
+  if (!ambito) continue;
+  const indice = vistos.get(ambito) ?? 0;
+  vistos.set(ambito, indice + 1);
+  retardos.set(el, `${Math.min(indice * PASO_MS, TOPE_MS)}ms`);
+}
+
+/**
+ * Activa un lote de reveals que ya entraron en pantalla. El observer y la red
+ * de seguridad pasan por acá, asi que hay una sola definicion de que es
+ * "aparecer" y no dos que puedan divergir.
+ */
+const activar = (entrantes: Iterable<HTMLElement>) => {
+  for (const el of entrantes) {
+    // El lead entra ya y sin retardo. Al observarse cada reveal por separado, su
+    // lugar en el flujo ya lo hace cruzarse antes que los items que tiene abajo,
+    // asi que no hace falta ningun caso especial para que el titular sea lo
+    // primero de la seccion.
     if (el.dataset.reveal === 'lead') {
       mostrar(el);
       continue;
     }
-    posicion += 1;
-    el.style.setProperty('--reveal-delay', `${Math.min(posicion * PASO_MS, TOPE_MS)}ms`);
+    // `0ms` es el default del CSS: un reveal sin scope entra con el retardo por
+    // defecto. El retardo se escribe antes de la clase para que la transicion
+    // lo lea desde el primer frame, y no desde el siguiente.
+    el.style.setProperty('--reveal-delay', retardos.get(el) ?? '0ms');
     mostrar(el);
   }
 };
 
 if ('IntersectionObserver' in window) {
-  // Un solo observer para los dos casos. Los reveals sueltos tambien se
-  // observan: si solo miráramos los scopes, uno fuera de todo scope no
-  // tendria quien lo revelara y quedaria invisible para siempre.
-  const sueltos = Array.from(document.querySelectorAll<HTMLElement>('[data-reveal]')).filter(
-    (el) => !el.closest('[data-reveal-scope]'),
-  );
-  const targets: Element[] = [
-    ...document.querySelectorAll('[data-reveal-scope]'),
-    ...sueltos,
-  ];
-
   const observer = new IntersectionObserver(
     (entradas, self) => {
+      const cruzados: HTMLElement[] = [];
       for (const entrada of entradas) {
         if (!entrada.isIntersecting) continue;
-        const el = entrada.target as HTMLElement;
-        if (el.matches('[data-reveal-scope]')) activarScope(el);
-        else activarUno(el);
         // Una vez activado no queda observing: el observer no acumula trabajo
         // sobre elementos que ya terminaron su animacion.
         self.unobserve(entrada.target);
+        cruzados.push(entrada.target as HTMLElement);
       }
+      activar(cruzados);
     },
     // Un poco antes de que el elemento entre a pantalla, para que la animacion
     // empiece mientras todavia se ve el approaching y no despues.
     { rootMargin: '0px 0px -12% 0px', threshold: 0 },
   );
 
-  for (const objetivo of targets) observer.observe(objetivo);
+  for (const el of reveals) observer.observe(el);
 
   // Red de seguridad propia: lo que esta en pantalla o arriba se muestra ya.
   // Sin esto, si el observer nunca dispara, el contenido visible queda oculto.
-  for (const objetivo of targets) {
-    if (objetivo.getBoundingClientRect().top >= window.innerHeight) continue;
-    if (objetivo.matches('[data-reveal-scope]')) activarScope(objetivo as HTMLElement);
-    else activarUno(objetivo as HTMLElement);
-    observer.unobserve(objetivo);
-  }
+  const enPantalla = Array.from(reveals).filter(
+    (el) => el.getBoundingClientRect().top < window.innerHeight,
+  );
+  activar(enPantalla);
+  for (const el of enPantalla) observer.unobserve(el);
 } else {
   // Sin IntersectionObserver no hay reveal, pero tampoco contenido escondido.
-  for (const el of document.querySelectorAll('[data-reveal]')) mostrar(el);
+  activar(reveals);
 }
