@@ -741,3 +741,60 @@ test('el observer cubre los reveals sueltos, no solo los scopes', opciones, () =
   assert.match(src, /getBoundingClientRect/, 'se perdio la red de seguridad propia');
   assert.match(src, /_glockFailSafe/, 'se perdio la cancelacion del failsafe');
 });
+
+test('el retardo que escribe el modulo lleva sus unidades', opciones, () => {
+  // Un numero sin unidad invalida la declaracion `transition-delay` entera y el
+  // escalonado desaparece sin ruido: ni el CSS ni el navegador se quejan. Por
+  // eso no alcanza con que el modulo nombre `--reveal-delay`, hay que mirar que
+  // lo que se interpola termine en `ms`.
+  const src = leer('src/scripts/motion.ts');
+  // El valor se lee hasta el `);` de la llamada, no hasta el primer parentesis:
+  // el retardo escalonado es `Math.min(...)` y cortarlo ahi lo truncaria.
+  const escrituras = [...src.matchAll(/setProperty\(\s*['"]--reveal-delay['"]\s*,\s*([\s\S]*?)\);/g)];
+  assert.ok(escrituras.length >= 2, `se esperaban al menos 2 escrituras del retardo, hay ${escrituras.length}`);
+  for (const [, valor] of escrituras) {
+    assert.match(
+      valor.trim(),
+      /ms['"`]?$/,
+      `el retardo "${valor.trim()}" no lleva unidad: transition-delay quedaria invalido y el escalonado no se veria`,
+    );
+  }
+});
+
+test('el modulo cancela el failsafe del head, no solo lo declara', opciones, () => {
+  // `_glockFailSafe` ya aparece en la firma de tipo de `doc`, asi que buscar el
+  // nombre no prueba nada: el modulo puede no cancelar y el guard seguir verde.
+  // Lo que tiene que existir es la llamada. Si falta, a los 2s el script
+  // sincrono saca `.js-reveal` y deshace el reveal en el medio.
+  const src = leer('src/scripts/motion.ts');
+  assert.match(
+    src,
+    /clearTimeout\([^)]*_glockFailSafe[^)]*\)/,
+    'el modulo no cancela el failsafe con clearTimeout: a los 2s se deshace el reveal',
+  );
+});
+
+test('el reveal suelto se muestra: la rama sin scope tambien pone .is-in', opciones, () => {
+  // Un `[data-reveal]` fuera de todo scope entra por `activarUno`. Si esa rama
+  // no lo muestra, el elemento se queda con `opacity: 0` y el clip cerrado para
+  // siempre: invisible sin error, justo lo que el gate entero existe para evitar.
+  const src = leer('src/scripts/motion.ts');
+  const i = src.indexOf('activarUno = ');
+  assert.ok(i > 0, 'no se encontro la rama de los reveals sueltos');
+  const ini = src.indexOf('{', i);
+  let prof = 0;
+  let fin = src.length;
+  for (let j = ini; j < src.length; j++) {
+    if (src[j] === '{') prof++;
+    else if (src[j] === '}' && --prof === 0) {
+      fin = j;
+      break;
+    }
+  }
+  const cuerpo = src.slice(ini, fin);
+  assert.match(
+    cuerpo,
+    /mostrar\([^)]*\)|classList\.add\(\s*['"]is-in['"]\s*\)/,
+    'la rama del reveal suelto no muestra el elemento: quedaria invisible para siempre',
+  );
+});
