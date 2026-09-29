@@ -849,31 +849,90 @@ test('el observer observa cada [data-reveal] y nunca a los scopes', opciones, ()
   // delate. Ademas, observar el scope entero revelaria sus items de abajo
   // fuera de pantalla y el escalonado no se veria.
   //
-  // LIMITACION CONOCIDA: esto sigue siendo un grep. Un observer por elemento y
-  // uno por scope son los dos TypeScript valido, asi que este test verifica la
-  // forma del grupo observado, no el comportamiento en el navegador. Para
-  // verificar eso de verdad habria que ejecutar el modulo contra un DOM simulado,
-  // y ese harness todavia no existe en este repo. Queda como Minor abierto.
+  // LIMITACION CONOCIDA: esto sigue siendo un grep sobre la forma del codigo, no
+  // una prueba de comportamiento. Un observer por elemento y uno por scope son los
+  // dos TypeScript valido, asi que no se verifica que en ejecucion se observe cada
+  // reveal. Tampoco ve una exclusion escondida tras otro selector de scopes o tras
+  // un helper que reescriba la coleccion en caliente. Cerrar eso exigiria ejecutar
+  // el modulo contra un DOM simulado, harness que todavia no existe en este repo.
   const src = leer('src/scripts/motion.ts');
   const decl = /const\s+(\w+)\s*=\s*document\.querySelectorAll<HTMLElement>\(\s*['"]\[data-reveal\]\s*['"]\s*\)/.exec(src);
   assert.ok(decl, 'no se encuentra la coleccion de reveals que alimenta al observer');
-  // El nombre se resuelve en tiempo de test: renombrar la variable no lo rompe.
+  // `reveals` es la coleccion publica que este test ya usa para anclar el recorte,
+  // no un helper privado: capturarla y citarla no acopla el test a un nombre.
+  const coleccion = decl[1];
   const observe = /[\w$]+\.observe\(/.exec(src);
   assert.ok(observe && observe.index > decl.index, 'la coleccion de reveals no es la que se observa');
-  // Y cada reveal se observa TAL CUAL. El argumento tiene que ser el elemento
-  // de la coleccion, no algo derivado de el: un `.filter` al armar la lista, o
-  // un `closest` al observar, dejan reveals fuera del grupo sin que nada lo diga.
-  // Se toma la sentencia completa del `observe` para que el filtro caiga dentro
-  // del chequeo tanto si viene en la lista como si viene en el argumento.
+  // El recorte arranca en el COMIENZO de la sentencia, no en el `.observe(`, e
+  // incluye el `for` que la envuelve. Sin el `for` el guard no veria un filtro
+  // aplicado al armar la lista, que es la mitad de los casos: ese `.filter` vive
+  // en su propia sentencia y nunca entra en un recorte arrancado en el `observe`.
+  const ini = Math.max(
+    src.lastIndexOf(';', observe.index),
+    src.lastIndexOf('{', observe.index),
+    src.lastIndexOf('}', observe.index),
+  ) + 1;
   const hasta = src.indexOf(';', observe.index);
+  const sentencia = src.slice(ini, hasta + 1);
+  // Se itera la coleccion declarada, sin derivados. `of sueltos` observa una
+  // lista ya filtrada y deja reveals fuera del grupo; `of reveals.filter(...)` o
+  // `of reveals.slice(...)` los dejan fuera igual, asi que el `)` tiene que
+  // pegarse al nombre.
   assert.match(
-    src.slice(observe.index, hasta + 1),
+    sentencia,
+    new RegExp(`for\\s*\\(\\s*const\\s+\\w+\\s+of\\s+${coleccion}\\s*\\)`),
+    `el observer no itera la coleccion de reveals (${coleccion}): se observan elementos derivados y cualquier reveal excluido queda oculto para siempre`,
+  );
+  // Y cada elemento se pasa tal cual, sin re-derivarlo en el argumento: un
+  // `observe(el.closest(...) ?? el)` vuelve a dejar fuera al reveal con scope.
+  assert.match(
+    sentencia,
     /\.observe\(\s*\w+\s*\)/,
-    'el observer no recibe el reveal tal cual: un filtro o un closest ahi deja elementos fuera del grupo y para siempre ocultos',
+    'el observer no recibe el reveal tal cual: derivarlo en el argumento deja elementos fuera del grupo y para siempre ocultos',
   );
   // Y ningun grupo se construye sobre scopes: el scope no es unidad de observacion.
   assert.ok(
     !/querySelectorAll[^;]*\(\s*['"]\[data-reveal-scope\]/.test(src),
     'el grupo observado se construye sobre scopes: un scope alto se revelaria entero fuera de pantalla',
+  );
+});
+
+test('el lead no consume indice en la pasada de escalonado', opciones, () => {
+  // El indice de cada item sale de un contador por scope. Si el lead no se salta
+  // en ESA pasada, se queda con el indice 0 y empuja un lugar a todos los items
+  // de su scope: 0/60/120 pasa a ser 60/120/180. No es un cambio invisible, son
+  // +60ms para cada item de esa seccion, y ningun otro guard lo mira: el de
+  // unidades solo ve el sufijo `ms` y el de escalonado ya paso por el retardo.
+  const src = leer('src/scripts/motion.ts');
+  // Se ancla en el `closest` porque es parte del contrato (el item se ubica en su
+  // scope) y no en el nombre de una variable. El bloque que lo envuelve es el
+  // cuerpo del `for` de la pasada de indices, y el guard del lead esta antes.
+  // Del ultimo `closest` hacia atras, y no del primero: si otra parte del modulo
+  // buscara tambien el scope, el guard tiene que anclar en la pasada de indices y
+  // no en esa otra, o miraria un bloque que no es el del escalonado.
+  //
+  // LIMITACION CONOCIDA: se mira la comparacion y el `continue`, no que el `lead`
+  // sea el unico tipo sin retardo. Si alguien reescribiera el salto con una
+  // bandera o un `Map` de indices, el guard no lo veria: sigue siendo un grep.
+  const i = src.lastIndexOf("closest('[data-reveal-scope]')");
+  assert.ok(i > 0, 'no se encuentra la pasada que ubica cada item en su scope');
+  let ini = i;
+  let prof = 0;
+  for (let j = i; j >= 0; j--) {
+    if (src[j] === '}') prof++;
+    else if (src[j] === '{') {
+      if (prof === 0) {
+        ini = j;
+        break;
+      }
+      prof--;
+    }
+  }
+  // Solo la parte anterior al `closest`: el guard tiene que estar antes de que el
+  // item se ubique, porque despues ya se le asigno un indice.
+  assert.match(
+    src.slice(ini, i),
+    /(?<![!=])===\s*['"]lead['"]\s*\)[^;{]*(?:continue\b|;)/,
+    'la pasada de indices no saltea el lead: el lead toma el indice 0 y todos los items de su scope arrancan 60ms tarde',
   );
 });
