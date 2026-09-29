@@ -707,3 +707,37 @@ test('el item neutraliza el clip del lead', opciones, () => {
   const bloque = css.slice(i, css.indexOf('@media', i));
   assert.match(bloque, /clip-path:\s*none/, 'el item hereda el clip del lead y queda incompleto');
 });
+
+test('el escalonado tiene paso 60 y tope 420', opciones, () => {
+  // Sin tope, una grilla de 12 items tarda 660 ms en terminar de entrar y se
+  // lee como lentitud. Con tope, los ultimos comparten el retardo maximo.
+  const src = leer('src/scripts/motion.ts');
+  assert.match(src, /PASO_MS\s*=\s*60\b/, 'el paso de escalonado no es 60 ms');
+  assert.match(src, /TOPE_MS\s*=\s*420\b/, 'el tope de retardo no es 420 ms');
+  assert.match(src, /Math\.min\([\s\S]{0,80}?PASO_MS[\s\S]{0,80}?TOPE_MS/, 'el retardo no se satura con TOPE_MS');
+});
+
+test('lead entra sin retardo y los items con retardo', opciones, () => {
+  // El titulo es lo primero que tiene que aparecer en cada seccion. Si el
+  // lead pasara por el calculo de retardo, entraria tarde y el efecto se
+  // invierte: el texto de apoyo aparecia antes que el titular.
+  const src = leer('src/scripts/motion.ts');
+  assert.match(src, /PASO_MS\s*=\s*60\b/, 'no hay constantes de escalonado');
+  assert.match(src, /Math\.min\(/, 'el retardo no se calcula');
+  const salto = /dataset\.reveal === ['"]lead['"][\s\S]{0,160}?continue;/.exec(src);
+  assert.ok(salto, 'el bucle de escalonado no salta a los leads con continue');
+  assert.ok(
+    /lead[\s\S]{0,160}?continue;[\s\S]{0,400}?--reveal-delay/.test(src),
+    'el retardo se escribe despues del continue, asi que el lead tambien lo lleva',
+  );
+});
+
+test('el observer cubre los reveals sueltos, no solo los scopes', opciones, () => {
+  // El fallo mas caro posible en este sitio: un [data-reveal] fuera de todo
+  // scope se queda invisible para siempre porque nadie lo observa.
+  const src = leer('src/scripts/motion.ts');
+  assert.match(src, /closest\(\s*['"]\[data-reveal-scope\]['"]\s*\)/, 'no separa los reveals sueltos');
+  assert.match(src, /--reveal-delay/, 'no escribe el retardo que el CSS lee');
+  assert.match(src, /getBoundingClientRect/, 'se perdio la red de seguridad propia');
+  assert.match(src, /_glockFailSafe/, 'se perdio la cancelacion del failsafe');
+});
