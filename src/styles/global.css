@@ -47,6 +47,24 @@ body::after {
 ::selection { background: #C400FF; color: #0A0A0A; }
 :focus-visible { outline: 2px solid #C400FF; outline-offset: 3px; }
 
+/* Skip link (WCAG 2.4.1). Fuera de pantalla hasta que recibe foco por teclado,
+   con `not(:focus-visible)` para no molestar a quien navega con mouse. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: #C400FF;
+  color: #0A0A0A;
+  font-weight: 700;
+  padding: 0.75rem 1.25rem;
+}
+.skip-link:focus { left: 0; }
+
+/* El `tabindex="-1"` del main recibe foco al saltar, y no queremos que le
+   dibuje un anillo de foco que no pidió nadie. */
+main:focus { outline: none; }
+
 * { scrollbar-width: thin; scrollbar-color: #4B0055 #0A0A0A; }
 *::-webkit-scrollbar { width: 10px; height: 10px; }
 *::-webkit-scrollbar-thumb { background: #4B0055; }

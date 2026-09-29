@@ -407,6 +407,16 @@ test('un evento ya ocurrido no se anuncia con entradas disponibles', opciones, (
   assert.ok(revisados > 0, 'ningun evento pasado para verificar');
 });
 
+test('hay un skip link que apunta al main (WCAG 2.4.1)', opciones, () => {
+  const enlace = /<a[^>]+href="#contenido"[^>]*class="[^"]*skip-link[^"]*"[^>]*>([^<]+)<\/a>/i.exec(html);
+  assert.ok(enlace, 'falta el skip link a #contenido');
+  assert.ok(enlace[1].trim().length > 0, 'el skip link no tiene texto');
+  assert.ok(
+    /<main[^>]+id="contenido"/i.test(html),
+    'el skip link apunta a #contenido pero el main no tiene ese id',
+  );
+});
+
 test('el schema rechaza horaFin identico a hora', async () => {
   const { glockSchema } = await import('../src/content/schema.ts');
   const raw = JSON.parse(leer('src/content/glock.json'));
