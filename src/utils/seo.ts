@@ -27,6 +27,20 @@ const isoDate = (fecha: string, anio: number, hora?: string): string => {
   return `${anio}-${m.padStart(2, '0')}-${d.padStart(2, '0')}${hora ? `T${hora}:00-03:00` : ''}`;
 };
 
+/**
+ * Un show que arranca 19:00 y termina 00:00 cruza la medianoche, asi que su
+ * `endDate` va al dia siguiente. Sin este salto Google recibiria un `endDate`
+ * anterior al `startDate`.
+ */
+const isoFin = (fecha: string, anio: number, hora: string | undefined, horaFin: string): string => {
+  if (hora && horaFin <= hora) {
+    const [d, m] = fecha.split('/');
+    const dia = new Date(Date.UTC(anio, Number(m) - 1, Number(d) + 1));
+    return `${dia.getUTCFullYear()}-${String(dia.getUTCMonth() + 1).padStart(2, '0')}-${String(dia.getUTCDate()).padStart(2, '0')}T${horaFin}:00-03:00`;
+  }
+  return isoDate(fecha, anio, horaFin);
+};
+
 const oferta = (e: EdicionLd): object | undefined => {
   if (typeof e.precio !== 'number' && !e.entradaGratis) return undefined;
   return {
@@ -123,7 +137,7 @@ export function eventsJsonLd(ediciones: EdicionLd[]): object[] {
     const start = isoDate(e.fecha, e.anio, e.hora);
     // No hay duracion confirmada en el contenido, asi que `endDate` solo se emite
     // si el show declara una hora de cierre explicita.
-    const end = e.horaFin ? isoDate(e.fecha, e.anio, e.horaFin) : undefined;
+    const end = e.horaFin ? isoFin(e.fecha, e.anio, e.hora, e.horaFin) : undefined;
     const ofertaLd = oferta(e);
     return {
       '@context': 'https://schema.org',

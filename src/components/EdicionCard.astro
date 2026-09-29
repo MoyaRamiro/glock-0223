@@ -7,10 +7,24 @@ interface Props {
   cypher: string[]; shows: string[]; extra: string; main: string | null;
   asistentes: number; mvp: string | null; destacado: string;
   flyer: string; flyerAlt: string; postIg: string; mainFoto?: string; foto?: string; fotoAlt?: string; highlight?: string[]; flip: boolean; eager?: boolean;
+  hora?: string; horaFin?: string; precio?: number; entradaGratis?: boolean;
 }
 const p = Astro.props;
 const rot = p.flip ? 'md:-rotate-2' : 'md:rotate-2';
 const foto = getImage(p.foto);
+
+/** "19:00" -> "19hs". Si cierra a la medianoche se muestra el dia siguiente. */
+const hhmm = (h: string) => `${parseInt(h, 10)}hs`;
+const horario = p.hora
+  ? p.horaFin
+    ? `${hhmm(p.hora)} a ${p.horaFin <= p.hora ? '00hs (madrugada)' : hhmm(p.horaFin)}`
+    : `${hhmm(p.hora)}hs`
+  : null;
+const precioTxt = p.entradaGratis
+  ? 'Entrada gratis'
+  : typeof p.precio === 'number'
+    ? `$${p.precio.toLocaleString('es-AR')}`
+    : null;
 ---
 <article class="grid gap-6 border-t border-white/15 py-10 md:grid-cols-12 md:gap-8 md:py-14">
   <p aria-hidden="true" class="font-display text-stroke order-first leading-none md:col-span-2" style="font-size: clamp(4.5rem, 14vw, 9rem);">#{p.n}</p>
@@ -48,7 +62,8 @@ const foto = getImage(p.foto);
   </div>
   <div class="md:col-span-5">
     <h3 class="font-display text-4xl uppercase leading-none">Glock #{p.n} <span class="text-white/50">. {p.fecha}/{p.anio}</span></h3>
-    <p class="mt-2 text-white/80">{p.lugar} · {p.direccion} · <a href={p.maps} target="_blank" rel="noopener" class="tap underline underline-offset-4">Cómo llegar</a></p>
+    <p class="mt-2 text-white/80">{p.lugar} · {p.direccion}{horario && <span> · {horario}</span>} · <a href={p.maps} target="_blank" rel="noopener" class="tap underline underline-offset-4">Cómo llegar</a></p>
+    {precioTxt && <p class="mt-3"><strong class="font-display text-2xl uppercase tracking-wide text-[#C400FF]">Entrada. </strong><span class="font-display text-2xl uppercase">{precioTxt}</span></p>}
     <p class="mt-4"><strong class="font-display text-xl uppercase tracking-wide">Cypher. </strong>{p.cypher.map((c, i) => <>{i > 0 && ' · '}{p.highlight?.includes(c) ? <span class="underline underline-offset-4">{c}</span> : c}</>)}</p>
     <p class="mt-2"><strong class="font-display text-xl uppercase tracking-wide">Shows. </strong>{p.main && <><span class="font-display text-xl uppercase tracking-wide text-[#C400FF]">{p.main}</span> · </>}{p.shows.join(' · ')}</p>
     {p.extra && <p class="mt-2 text-white/70">{p.extra}</p>}

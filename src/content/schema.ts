@@ -42,8 +42,11 @@ const edicion = z
     if (e.horaFin && !e.hora) {
       ctx.addIssue({ code: 'custom', path: ['horaFin'], message: 'horaFin requiere hora' });
     }
-    if (e.hora && e.horaFin && e.horaFin <= e.hora) {
-      ctx.addIssue({ code: 'custom', path: ['horaFin'], message: 'horaFin debe ser posterior a hora' });
+    // Un show arranca de noche y termina a la medianoche, asi que `horaFin` menor
+    // que `hora` es lo esperable: significa que cruza al dia siguiente. Solo es
+    // invalido que sean iguales (duracion cero).
+    if (e.hora && e.horaFin && e.horaFin === e.hora) {
+      ctx.addIssue({ code: 'custom', path: ['horaFin'], message: 'horaFin debe ser distinta de hora' });
     }
     if (e.entradaGratis && e.precio) {
       ctx.addIssue({ code: 'custom', path: ['precio'], message: 'no puede haber precio y entradaGratis a la vez' });

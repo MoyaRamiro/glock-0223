@@ -37,12 +37,28 @@ test('cada MusicEvent tiene startDate, address y performer', opciones, () => {
   }
 });
 
-test('no se publican endDate ni offers inventados en eventos pasados', opciones, () => {
+test('endDate y offers solo se publican si el contenido los declara', opciones, () => {
+  // La guarda original prohibia endDate/offers. Ahora hay dato real, asi que la
+  // regla es la inversa: si el JSON no lo declara, el JSON-LD tampoco lo inventa.
+  const datos = JSON.parse(leer('src/content/glock.json'));
   const eventos = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
     .map(([, c]) => JSON.parse(c))
     .flat()
     .filter((b) => b['@type'] === 'MusicEvent');
-  for (const e of eventos) assert.equal(e.endDate, undefined, `endDate sin dato real en ${e.name}`);
+  assert.ok(eventos.length > 0, 'no se emitieron eventos');
+  for (const e of eventos) {
+    const n = Number(/#(\d+)/.exec(e.name)?.[1]);
+    const src = datos.ediciones.find((x) => x.n === n);
+    assert.ok(src, `evento sin edicion de origen: ${e.name}`);
+    assert.equal(Boolean(e.endDate), Boolean(src.horaFin), `endDate en #${n} no coincide con horaFin`);
+    const declaraPrecio = typeof src.precio === 'number' || src.entradaGratis === true;
+    assert.equal(Boolean(e.offers), declaraPrecio, `offers en #${n} no coincide con el precio declarado`);
+    if (e.offers) {
+      assert.ok(e.offers.url?.startsWith('https://'), `offer sin url en #${n}`);
+      assert.ok(Number(e.offers.price) >= 0, `precio negativo en #${n}`);
+    }
+    if (e.endDate) assert.ok(e.endDate > e.startDate, `endDate <= startDate en #${n}`);
+  }
 });
 
 test('las imagenes de los eventos existen en el build', opciones, () => {
@@ -124,6 +140,75 @@ test('todo srcset declara el ancho real en sizes, no una estimacion en vw', () =
   }
 });
 
+test('todo show que cruza la medianoche declara endDate al dia siguiente', opciones, () => {
+  // 19:00 -> 00:00 es lo esperable en un boliche. Si el endDate saliera con la
+  // misma fecha, Google recibiria un endDate anterior al startDate.
+  const datos = JSON.parse(leer('src/content/glock.json'));
+  const cruzan = datos.ediciones.filter((e) => e.hora && e.horaFin && e.horaFin <= e.hora);
+  assert.ok(cruzan.length > 0, 'se esperaba al menos un show que cruce la medianoche');
+  const bloques = [...html.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)]
+    .map((m) => JSON.parse(m[1]))
+    .flatMap((j) => (Array.isArray(j) ? j : [j]))
+    .flatMap((j) => (j['@graph'] ? j['@graph'] : [j]));
+  for (const e of datos.ediciones.filter((x) => x.hora && x.horaFin)) {
+    const ev = bloques.find((b) => b['@type'] === 'MusicEvent' && b.name?.includes(`#${e.n}`));
+    assert.ok(ev, `no hay MusicEvent para la edicion ${e.n}`);
+    assert.ok(ev.startDate?.endsWith(`T${e.hora}:00-03:00`), `startDate raro en #${e.n}: ${ev.startDate}`);
+    assert.ok(ev.endDate, `falta endDate en #${e.n}`);
+    if (e.horaFin <= e.hora) {
+      assert.notEqual(
+        ev.endDate.slice(0, 10),
+        ev.startDate.slice(0, 10),
+        `#${e.n} termina a la medianoche: endDate deberia caer al dia siguiente`,
+      );
+      assert.ok(ev.endDate > ev.startDate, `#${e.n}: endDate ${ev.endDate} no es posterior a startDate ${ev.startDate}`);
+    } else {
+      assert.equal(ev.endDate.slice(0, 10), ev.startDate.slice(0, 10), `#${e.n}: endDate deberia ser el mismo dia`);
+    }
+  }
+});
+
+test('el precio viaja al JSON-LD como numero plano en pesos', opciones, () => {
+  const datos = JSON.parse(leer('src/content/glock.json'));
+  const conPrecio = datos.ediciones.filter((e) => typeof e.precio === 'number');
+  assert.ok(conPrecio.length > 0, 'se esperaba al menos una edicion con precio');
+  const bloques = [...html.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)]
+    .map((m) => JSON.parse(m[1]))
+    .flatMap((j) => (Array.isArray(j) ? j : [j]))
+    .flatMap((j) => (j['@graph'] ? j['@graph'] : [j]));
+  for (const e of conPrecio) {
+    const ev = bloques.find((b) => b['@type'] === 'MusicEvent' && b.name?.includes(`#${e.n}`));
+    assert.ok(ev?.offers, `falta offers en #${e.n}`);
+    assert.equal(ev.offers['@type'], 'Offer');
+    assert.equal(ev.offers.price, String(e.precio), `#${e.n}: precio ${ev.offers.price} != ${e.precio}`);
+    assert.equal(ev.offers.priceCurrency, 'ARS');
+  }
+});
+
+test('la hora y el precio de cada edicion se ven en la pagina, no solo en el JSON-LD', opciones, () => {
+  // Dato que solo vive en los metadatos no le sirve a nadie: el visitante llega
+  // por la hora y el precio.
+  const datos = JSON.parse(leer('src/content/glock.json'));
+  const visible = html
+    .replace(/<script[\s\S]*?<\/script>/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&middot;/g, '·')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ');
+  const conPrecio = datos.ediciones.filter((e) => typeof e.precio === 'number' || e.entradaGratis === true);
+  assert.ok(conPrecio.length > 0, 'se esperaba al menos una edicion con precio');
+  for (const e of datos.ediciones.filter((x) => x.hora)) {
+    assert.ok(
+      visible.includes(`${parseInt(e.hora, 10)}hs`),
+      `la hora de la edicion ${e.n} no aparece en el texto visible`,
+    );
+  }
+  for (const e of conPrecio) {
+    const esperado = e.entradaGratis ? 'Entrada gratis' : `$${e.precio.toLocaleString('es-AR')}`;
+    assert.ok(visible.includes(esperado), `el precio "${esperado}" de la edicion ${e.n} no aparece en la pagina`);
+  }
+});
+
 test('la imagen OG existe y es valida', opciones, () => {
   const og = join(dist, 'images/og-glock.jpg');
   assert.ok(existsSync(og), 'falta dist/images/og-glock.jpg');
@@ -183,8 +268,28 @@ test('el schema rechaza horaFin sin hora', async () => {
   const { glockSchema } = await import('../src/content/schema.ts');
   const raw = JSON.parse(leer('src/content/glock.json'));
   const roto = structuredClone(raw);
+  delete roto.ediciones[0].hora;
   roto.ediciones[0].horaFin = '23:00';
   assert.throws(() => glockSchema.parse(roto), /horaFin requiere hora/);
+});
+
+test('el schema acepta un show que cruza la medianoche', async () => {
+  const { glockSchema } = await import('../src/content/schema.ts');
+  const raw = JSON.parse(leer('src/content/glock.json'));
+  const r = glockSchema.safeParse(raw);
+  assert.ok(r.success, '19:00 -> 00:00 deberia ser valido');
+  for (const e of r.data.ediciones) {
+    assert.equal(e.hora, '19:00');
+    assert.equal(e.horaFin, '00:00');
+  }
+});
+
+test('el schema rechaza horaFin identico a hora', async () => {
+  const { glockSchema } = await import('../src/content/schema.ts');
+  const raw = JSON.parse(leer('src/content/glock.json'));
+  const roto = structuredClone(raw);
+  roto.ediciones[0].horaFin = roto.ediciones[0].hora;
+  assert.throws(() => glockSchema.parse(roto), /horaFin debe ser distinta de hora/);
 });
 
 test('ninguna referencia a /images apunta a un archivo ausente', opciones, () => {
