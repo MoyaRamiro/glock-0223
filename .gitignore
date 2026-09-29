@@ -7,3 +7,7 @@ dist/
 
 .vercel
 .env*
+
+# Worktrees aislados y scratch de superpowers (ledger, briefs, review packages)
+.worktrees/
+.superpowers/
