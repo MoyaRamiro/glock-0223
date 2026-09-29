@@ -360,16 +360,25 @@ test('ningun reveal queda fuera de un scope', opciones, () => {
   assert.deepEqual([...parciales], ['EdicionCard'], 'cambio el set de parciales: revisa quien quedo huerfano');
 });
 
-test('no hay reveals anidados', opciones, () => {
+test('los wrappers que agrupan items no son items', opciones, () => {
   // Un reveal dentro de otro reveal compone dos transforms: el hijo se mueve
-  // dos veces y la coreografia se ve rota. Se busca el caso tipico: wrapper
-  // con reveal que ademas contiene los items.
-  const wrappers = ['Ediciones', 'Proxima', 'Contacto', 'Artistas', 'Sessions', 'Sponsors'];
-  for (const nombre of wrappers) {
+  // dos veces y la coreografia se ve rota. Estos wrappers existen para agrupar
+  // items, asi que si se convierten en item, todo lo que contienen anima doble.
+  // Se chequean por clase exacta: el nombre del wrapper es lo unico estable
+  // de cada componente, y exigir la comilla de cierre evita matchear al hermano.
+  const wrappers = [
+    ['Ediciones', 'class="mt-4"'],
+    ['SerParte', 'class="mt-8 border-b border-white/15"'],
+    ['Hero', 'class="mt-10 grid gap-8 md:grid-cols-12"'],
+  ];
+  for (const [nombre, clase] of wrappers) {
     const src = leer(`src/components/${nombre}.astro`);
+    const escapada = clase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const encontrado = new RegExp(`<[^>]*${escapada}[^>]*>`).exec(src);
+    assert.ok(encontrado, `${nombre}.astro no tiene el wrapper ${clase}: revisa que el plan siga vigente`);
     assert.ok(
-      !/class="[^"]*"[^>]*data-reveal="item"[^>]*>[\s\S]{0,400}?data-reveal="item"/.test(src),
-      `${nombre}.astro tiene reveals anidados`,
+      !encontrado[0].includes('data-reveal'),
+      `${nombre}.astro: el wrapper ${clase} no debe ser item, sus hijos ya lo son`,
     );
   }
 });
@@ -380,7 +389,7 @@ test('el build trae los reveals con jerarquia', opciones, () => {
   const items = (html.match(/data-reveal="item"/g) || []).length;
   assert.ok(scopes >= 9, `se esperaban al menos 9 scopes, hay ${scopes}`);
   assert.ok(leads >= 9, `se esperaban al menos 9 leads, hay ${leads}`);
-  assert.ok(items >= 20, `se esperaban al menos 20 items, hay ${items}`);
+  assert.ok(items >= 15, `se esperaban al menos 15 items, hay ${items}`);
   assert.ok(!/data-reveal(?!\s*=)/.test(html), 'quedo un data-reveal pelado: debe ser lead o item');
 });
 ```
@@ -465,7 +474,7 @@ El contenedor de los CTA de la linea 12 es item y sus botones no. Un unico escal
   <h2 class="font-display h-display uppercase" data-reveal="lead" data-misalign>Ser parte<br />de Glock</h2>
   <div class="mt-8 border-b border-white/15">
 ```
-Cada `<a class="row-link">` de la linea 13 lleva `data-reveal="item"`, y el `<p class="mt-6">` de la linea 19 tambien. Aca si escalona bien: son filas de datos apiladas y la cascada se lee como una lista que se arma. El wrapper de la linea 11 **no** lleva reveal, por el mismo anidamiento que en Ediciones.
+Cada `<a class="row-link">` de la linea 13 lleva `data-reveal="item"`, y el `<p class="mt-6">` de la linea 19 tambien. Ojo: esta seccion tiene **un solo** row-link, asi que son 2 items y el escalonado queda casi plano. El wrapper de la linea 11 **no** lleva reveal, por el mismo anidamiento que en Ediciones.
 
 `Contacto.astro`, que vive fuera de `<main>` — linea 4, 6 y 7:
 ```astro
@@ -502,7 +511,7 @@ git commit -m "feat: el reveal cubre las nueve secciones con jerarquia"
 ### Task 4: Coreografia de carga del hero
 
 **Files:**
-- Modify: `src/styles/global.css` (bloque MOTION, antes de `@media (prefers-reduced-motion: reduce)` que hoy es la linea 191; y el bloque de reduced-motion)
+- Modify: `src/styles/global.css` (bloque MOTION, justo antes de `@media (prefers-reduced-motion: reduce)`; y el interior de ese media query)
 - Modify: `src/components/Hero.astro`
 - Test: `tests/content.test.mjs`
 
@@ -593,7 +602,7 @@ En `src/styles/global.css`, dentro del bloque MOTION, justo antes de `@media (pr
 
 El `both` en el fill mode importa: sin el, durante el delay el elemento se ve ya en su estado final y la coreografia no se ve.
 
-En el bloque de reduced-motion, reemplazar la regla de la linea 195 por:
+En el bloque de reduced-motion, reemplazar la regla `.js-reveal [data-reveal] { clip-path: none !important; }` por:
 
 ```css
   /* Sin esto el wipe queda a medio camino para siempre. Y los items, que
