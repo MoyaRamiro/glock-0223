@@ -41,11 +41,14 @@ const edicion = z
     postIg: z.url(),
     hora: z.string().regex(/^\d{2}:\d{2}$/).optional(),
     horaFin: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-    precio: z.number().nonnegative().optional(),
-    entradaGratis: z.boolean().optional(),
-  })
-  .strict()
-  .superRefine((e, ctx) => {
+      precio: z.number().nonnegative().optional(),
+      entradaGratis: z.boolean().optional(),
+      // Aforo del venue, no asistencia. Opcional y con guardia en superRefine:
+      // si se declara, tiene que ser >= a la asistencia real.
+      capacidad: z.number().int().positive().optional(),
+    })
+    .strict()
+    .superRefine((e, ctx) => {
     if (e.horaFin && !e.hora) {
       ctx.addIssue({ code: 'custom', path: ['horaFin'], message: 'horaFin requiere hora' });
     }
@@ -55,10 +58,17 @@ const edicion = z
     if (e.hora && e.horaFin && e.horaFin === e.hora) {
       ctx.addIssue({ code: 'custom', path: ['horaFin'], message: 'horaFin debe ser distinta de hora' });
     }
-    if (e.entradaGratis && e.precio) {
-      ctx.addIssue({ code: 'custom', path: ['precio'], message: 'no puede haber precio y entradaGratis a la vez' });
-    }
-  });
+      if (e.entradaGratis && e.precio) {
+        ctx.addIssue({ code: 'custom', path: ['precio'], message: 'no puede haber precio y entradaGratis a la vez' });
+      }
+      if (e.capacidad != null && e.asistentes > e.capacidad) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['capacidad'],
+          message: `aforo de ${e.capacidad} no puede ser menor que ${e.asistentes} asistentes`,
+        });
+      }
+    });
 
 export const glockSchema = z
   .object({
@@ -158,6 +168,10 @@ export const glockSchema = z
         shows: z.array(z.string()).optional(),
         postIg: z.url().optional(),
         precio: z.number().nonnegative().optional(),
+      // Aforo del venue, no asistencia. Es un dato distinto: en dos ediciones
+      // la asistencia supero el aforo, y eso hay que resolverlo antes de
+      // publicarlo (ver el test de coherencia en tests/content.test.mjs).
+      capacidad: z.number().int().positive().optional(),
         entradaGratis: z.boolean().optional(),
       })
       .strict(),

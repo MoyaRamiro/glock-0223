@@ -270,6 +270,43 @@ test('el schema exige los datos de video de una session publicada', async () => 
   assert.match(texto, /path: \['duracion'\]/, 'el schema deberia exigir `duracion` en una session publicada');
 });
 
+test('el aforo declarado nunca es menor que la asistencia real', () => {
+  // El primer intento daba un aforo de 100 para la #1, que tiene 120
+  // asistentes. Un JSON-LD que se contradice solo no le sirve a Google ni a
+  // nadie, asi que el dato no se publica hasta que cierre.
+  const datos = JSON.parse(leer('src/content/glock.json'));
+  for (const e of datos.ediciones) {
+    if (typeof e.capacidad !== 'number') continue;
+    assert.ok(
+      e.asistentes <= e.capacidad,
+      `edicion #${e.n}: ${e.asistentes} asistentes no entran en un aforo de ${e.capacidad}`,
+    );
+  }
+});
+
+test('el aforo viaja al JSON-LD como QuantitativeValue y solo si se declara', opciones, () => {
+  const datos = JSON.parse(leer('src/content/glock.json'));
+  const conAforo = datos.ediciones.filter((e) => typeof e.capacidad === 'number');
+  assert.ok(conAforo.length > 0, 'se esperaba al menos una edicion con aforo');
+  const bloques = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+    .map((m) => JSON.parse(m[1]))
+    .flatMap((j) => (Array.isArray(j) ? j : [j]))
+    .flatMap((j) => (j['@graph'] ? j['@graph'] : [j]));
+  for (const e of datos.ediciones) {
+    const ev = bloques.find((b) => b['@type'] === 'MusicEvent' && b.name?.includes(`#${e.n}`));
+    assert.ok(ev, `falta el MusicEvent de la edicion #${e.n}`);
+    if (typeof e.capacidad !== 'number') {
+      assert.equal(ev.maximumAttendeeCapacity, undefined, `#${e.n} publica un aforo que el contenido no declara`);
+      continue;
+    }
+    assert.deepEqual(
+      ev.maximumAttendeeCapacity,
+      { '@type': 'QuantitativeValue', value: e.capacidad },
+      `#${e.n}: maximumAttendeeCapacity no coincide con el dato`,
+    );
+  }
+});
+
 test('la imagen OG existe y es valida', opciones, () => {
   const og = join(dist, 'images/og-glock.jpg');
   assert.ok(existsSync(og), 'falta dist/images/og-glock.jpg');

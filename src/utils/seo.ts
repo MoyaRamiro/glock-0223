@@ -18,8 +18,8 @@ export interface EdicionLd {
   n: number; fecha: string; anio: number; lugar: string; direccion: string;
   flyer: string; postIg: string; shows: string[]; cypher: string[];
   main?: string | null; mvp?: string | null; asistentes?: number; maps?: string;
-  foto?: string; hora?: string; horaFin?: string; precio?: number; entradaGratis?: boolean;
-  estado?: string;
+    foto?: string; hora?: string; horaFin?: string; precio?: number; entradaGratis?: boolean;
+    estado?: string; capacidad?: number;
 }
 
 const isoDate = (fecha: string, anio: number, hora?: string): string => {
@@ -177,6 +177,11 @@ export function eventsJsonLd(ediciones: EdicionLd[]): object[] {
       url: `${SITE}/#ediciones`,
       sameAs: [e.postIg],
       ...(ofertaLd ? { offers: ofertaLd } : {}),
+      // Aforo del venue, no asistencia. Va solo en el JSON-LD a proposito: es
+      // un dato para Google, no algo que el sitio quiera exhibir.
+      ...(e.capacidad
+        ? { maximumAttendeeCapacity: { '@type': 'QuantitativeValue', value: e.capacidad } }
+        : {}),
     };
   });
 
