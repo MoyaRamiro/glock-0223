@@ -209,6 +209,30 @@ test('la hora y el precio de cada edicion se ven en la pagina, no solo en el JSO
   }
 });
 
+test('la proxima no muestra lugar, fecha ni ciudad que el dato no declare', opciones, () => {
+  // Estuvo "Mar del Plata" hardcodeado en el componente. Nadie lo confirmo:
+  // publicar una ciudad inventada es peor que publicar "proximamente".
+  const datos = JSON.parse(leer('src/content/glock.json'));
+  const p = datos.proxima;
+  const i = html.indexOf('id="proxima"');
+  assert.notEqual(i, -1, 'no se encontro la seccion de la proxima');
+  const seccion = html.slice(i, html.indexOf('</section>', i));
+  const texto = seccion
+    .replace(/<script[\s\S]*?<\/script>/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ');
+  if (!p.lugar) {
+    assert.ok(
+      !/Mar del Plata/i.test(texto),
+      'la seccion de la proxima muestra una ciudad que el dato no declara',
+    );
+  }
+  if (!p.fecha) {
+    assert.ok(!/\b\d{1,2}\/\d{1,2}\/\d{4}\b/.test(texto), 'la proxima muestra una fecha sin declarar');
+  }
+  assert.match(texto, /Fecha a anunciar|proximamente/i, 'la proxima deberia aclarar que aun no hay fecha');
+});
+
 test('la imagen OG existe y es valida', opciones, () => {
   const og = join(dist, 'images/og-glock.jpg');
   assert.ok(existsSync(og), 'falta dist/images/og-glock.jpg');
