@@ -31,7 +31,7 @@ const precioTxt = p.entradaGratis
   <div class:list={['md:col-span-5', p.flip && 'md:order-3']}>
     {foto ? (
       <>
-        <p class:list={['relative z-10 -mb-7 w-full bg-[#4B0055] px-4 py-3 text-center font-display text-4xl font-bold uppercase', rot]}>Glock #{p.n}</p>
+        <p class:list={['relative z-10 -mb-7 w-full bg-[#4B0055] px-4 py-3 text-center font-display text-4xl font-bold uppercase', rot]} data-foto>Glock #{p.n}</p>
         <Image
           src={foto}
           alt={p.fotoAlt ?? `Foto en vivo de GLOCK #${p.n}`}
@@ -44,7 +44,7 @@ const precioTxt = p.entradaGratis
         />
       </>
     ) : (
-      <div class:list={['grid max-w-md place-items-center bg-[#4B0055]', rot]}>
+      <div class:list={['grid max-w-md place-items-center bg-[#4B0055]', rot]} data-foto>
         <span class="col-start-1 row-start-1 p-4 text-center font-display text-5xl font-bold">GLOCK #{p.n}</span>
         {getImage(p.flyer) && (
           <Image

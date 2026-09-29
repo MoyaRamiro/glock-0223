@@ -564,3 +564,104 @@ test('robots.txt apunta al sitemap del dominio canonico', () => {
   assert.ok(robots.includes('https://glock-0223.vercel.app/sitemap-index.xml'));
   assert.ok(!robots.includes('Disallow: /'));
 });
+
+/* ------------------------------------------------------------------ *
+ * Motion
+ *
+ * Estos guards existen porque el motion se puede romper de tres formas
+ * silenciosas: dejando el contenido invisible, metiendo layout shift, o
+ * quemando el presupuesto de performance. Ninguna de las tres falla en el
+ * build, asi que hay que probarlas a proposito.
+ * ------------------------------------------------------------------ */
+
+/** Los scripts que Astro inlina en el HTML. Los JSON-LD no cuentan: no se ejecutan. */
+function jsEjecutado(markup) {
+  let bytes = 0;
+  const modulos = [];
+  const clasicos = [];
+  for (const m of markup.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)) {
+    if (/ld\+json/.test(m[1])) continue;
+    const cuerpo = m[2].trim();
+    bytes += cuerpo.length;
+    // El modulo va diferido; el clasico corre sincrono en el head. Importa
+    // la distincion: la red de seguridad tiene que vivir en el clasico,
+    // porque es el unico que corre si el modulo no llega a cargar.
+    if (/type="module"/.test(m[1])) modulos.push(cuerpo);
+    else clasicos.push(cuerpo);
+  }
+  return { bytes, codigo: [...modulos, ...clasicos].join('\n'), modulos: modulos.join('\n'), clasicos: clasicos.join('\n') };
+}
+
+test('el presupuesto de JS sigue siendo trivial', opciones, () => {
+  const { bytes } = jsEjecutado(html);
+  // 2.5 KB hoy. El techo esta para que un modulo de scroll o una libreria
+  // de animacion no entren sin que alguien lo note en el PR.
+  assert.ok(bytes < 4096, `el JS inlinado crecio a ${bytes} B, sobre el presupuesto de 4096 B`);
+});
+
+test('sin JS el contenido nunca queda oculto', opciones, () => {
+  // Si el estado inicial viviera en el CSS sin el gate `.js-reveal`, un fallo
+  // de red o un error de sintaxis dejaria los titulos en blanco para siempre.
+  // El `<html>` estatico no debe traer la clase: la agrega el script.
+  const htmlTag = /<html[^>]*>/.exec(html);
+  assert.ok(htmlTag, 'no hay etiqueta <html>');
+  assert.ok(!htmlTag[0].includes('js-reveal'), '<html> trae js-reveal en el HTML estatico: el contenido quedaria oculto sin JS');
+
+  const css = leer('src/styles/global.css');
+  const ocultos = [...css.matchAll(/([^{}]*\[data-reveal\][^{}]*)\{([^}]*)\}/g)]
+    .filter(([, sel]) => !sel.includes('.js-reveal'))
+    .map(([, sel]) => sel.trim());
+  assert.deepEqual(ocultos, [], `estos selectores ocultan sin el gate .js-reveal: ${ocultos.join(' | ')}`);
+});
+
+test('prefers-reduced-motion no deja el wipe a medias', opciones, () => {
+  // La trampa: el reveal depende de una transition para pasar de oculto a
+  // visible, y el bloque de reduced-motion mata las transitions. Sin
+  // neutralizar el clip-path a mano, el contenido desaparece justamente
+  // para quien pidio menos movimiento.
+  const css = leer('src/styles/global.css');
+  const i = css.indexOf('@media (prefers-reduced-motion: reduce)');
+  assert.ok(i > 0, 'falta el bloque prefers-reduced-motion');
+  const bloque = css.slice(i);
+  assert.match(
+    bloque,
+    /\.js-reveal\s*\[data-reveal\]\s*\{[^}]*clip-path:\s*none\s*!important/,
+    'reduced-motion no anula el clip-path del reveal: el contenido quedaria oculto',
+  );
+});
+
+test('el motion solo toca propiedades que no mueven la pagina', opciones, () => {
+  // Cualquier propiedad de layout (height, top, margin, width...) genera CLS.
+  const css = leer('src/styles/global.css');
+  const inicio = css.indexOf('/* ------------------------------------------------------------------ *\n * MOTION');
+  assert.ok(inicio > 0, 'no se encuentra el bloque MOTION');
+  const bloque = css.slice(inicio, css.indexOf('@media (prefers-reduced-motion: reduce)', inicio));
+  for (const prop of ['height:', 'min-height:', 'width:', 'top:', 'bottom:', 'left:', 'margin', 'padding']) {
+    const culpable = new RegExp(`^[^/*]*\\b${prop.replace(':', '')}`, 'm');
+    assert.ok(!culpable.test(bloque), `el bloque MOTION declara "${prop}", que puede generar layout shift`);
+  }
+});
+
+test('el elemento LCP no se anima', opciones, () => {
+  // El h1 es el LCP. Animar su clip-path mueve el timestamp de LCP y puede
+  // romper el presupuesto de 2500 ms. Los reveals arrancan despues.
+  const h1 = /<h1[^>]*>/.exec(html);
+  assert.ok(h1, 'no hay h1');
+  assert.ok(!h1[0].includes('data-reveal'), 'el h1 (LCP) tiene data-reveal');
+  assert.ok(html.indexOf('<h1') < html.indexOf('data-reveal'), 'el h1 deberia ir antes del primer reveal');
+});
+
+test('el reveal tiene red de seguridad si el modulo no carga', opciones, () => {
+  const { codigo, clasicos, modulos } = jsEjecutado(html);
+  assert.match(codigo, /js-reveal/, 'el script que agrega .js-reveal no esta en el build');
+  assert.match(modulos, /IntersectionObserver/, 'el reveal por scroll deberia usar IntersectionObserver');
+  // Tiene que estar en el script sincrono del head, no en el modulo: el
+  // modulo es lo que puede no cargar. Ademas el nombre aparece tambien en el
+  // modulo (que lo cancela), asi que buscarlo en el conjunto no verifica nada.
+  assert.match(
+    clasicos,
+    /setTimeout\([\s\S]{0,140}?classList\.remove\(\s*['"]js-reveal['"]\s*\)/,
+    'sin failsafe en el script sincrono, un modulo roto deja el contenido oculto para siempre',
+  );
+  assert.match(clasicos, /classList\.add\(\s*['"]js-reveal['"]\s*\)/, 'el script sincrono es el que habilita el gate .js-reveal');
+});

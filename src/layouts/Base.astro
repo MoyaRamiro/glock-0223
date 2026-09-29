@@ -39,8 +39,30 @@ const ogImage = new URL('/images/og-glock.jpg', SITE).toString();
     <meta name="twitter:image:alt" content="GLOCK Shows & Cypher. Trap, Rap y Hip-Hop en Mar del Plata." />
     <meta name="theme-color" content="#0A0A0A" />
     {noindex && <meta name="robots" content="noindex, follow" />}
+    {/*
+      Se ejecuta sincrono en el <head>, antes de que se pinte el body, asi
+      que no hay flash de contenido visible que despues se oculta.
+
+      `js-reveal` es lo que habilita el estado oculto del wipe. Sin esta clase
+      el contenido se ve siempre, que es el motivo por el que el estado
+      inicial vive en CSS y no en el HTML.
+
+      El timeout es la red de seguridad: si el modulo de motion no llegara a
+      ejecutarse, los elementos con `data-reveal` quedarian ocultos para
+      siempre. `motion.ts` cancela este timer apenas arranca.
+    */}
+    <script is:inline>
+      (function () {
+        var d = document.documentElement;
+        d.classList.add('js-reveal');
+        d._glockFailSafe = setTimeout(function () { d.classList.remove('js-reveal'); }, 2000);
+      })();
+    </script>
   </head>
   <body class="bg-[#0A0A0A] text-[#F5F1E8] antialiased">
     <slot />
+    <script>
+      import '../scripts/motion';
+    </script>
   </body>
 </html>

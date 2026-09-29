@@ -10,7 +10,7 @@ const avisame = (n: number) =>
   `https://wa.me/5492235298014?text=${encodeURIComponent(`Avísenme cuando salga la Session #${n}`)}`;
 ---
 <section id="sessions" class="mx-auto max-w-6xl px-4 py-14 md:py-20">
-  <h2 class="font-display h-display uppercase">Cypher session</h2>
+  <h2 class="font-display h-display uppercase" data-reveal data-misalign>Cypher session</h2>
   <div class="mt-8" data-yt-feature>
     <button type="button" data-yt-load={ytId(lead.yt)} data-yt-title={`Cypher Session #${lead.n} de GLOCK`} class="group block w-full text-left" aria-label={`Reproducir Cypher Session #${lead.n} acá mismo`}>
       <span class="relative block aspect-video w-full overflow-hidden bg-black">

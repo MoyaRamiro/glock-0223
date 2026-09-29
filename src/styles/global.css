@@ -136,7 +136,61 @@ a.tag:hover { background: #F5F1E8; color: #0A0A0A; border-color: #F5F1E8; }
   padding-block: 0.1rem;
 }
 
+/* ------------------------------------------------------------------ *
+ * MOTION
+ * Tres reglas que este bloque no puede romper:
+ *
+ * 1. El estado oculto lo activa `.js-reveal`, que el JS agrega a <html>.
+ *    Si el script no corre, la clase no existe y nada queda invisible.
+ *    Al reves —poner `opacity: 0` en el estado base— dejaria el
+ *    contenido en blanco si el JS falla.
+ *
+ * 2. Solo se animan `clip-path` y `transform`, que no mueven la pagina.
+ *    `height`, `top` o `margin` aca darian layout shift.
+ *
+ * 3. El wipe depende de una `transition` para pasar de oculto a visible.
+ *    Por eso el bloque de `prefers-reduced-motion` de abajo tiene que
+ *    neutralizar el `clip-path` a mano: si solo matamos la transition,
+ *    el elemento se queda invisible para siempre.
+ * ------------------------------------------------------------------ */
+
+/* 1. Wipe de entrada. La transition vive en `.is-in` para que solo corra
+      cuando el observer agrega la clase, no en cada repintado. */
+.js-reveal [data-reveal] {
+  clip-path: inset(0 100% 0 0);
+}
+.js-reveal [data-reveal].is-in {
+  clip-path: inset(0 0 0 0);
+  transition: clip-path 0.5s cubic-bezier(0.22, 0.7, 0.2, 1);
+}
+
+/* 2. Misregistration: en hover el texto se desalinea en magenta, como una
+      tirada mal registraida, y se asienta al salir. Sin transicion: es un
+      corte seco, que es la identidad del sitio. */
+.js-reveal [data-misalign]:hover {
+  text-shadow: 0.05em 0 #C400FF;
+}
+
+/* 3. Micro-interacciones. El boton baja 1px al presionar, como una tecla. */
+.btn-glock, .btn-ghost {
+  transition: background 0.2s ease-out, color 0.2s ease-out, transform 0.06s ease-out;
+}
+.btn-glock:active, .btn-ghost:active {
+  transform: translateY(1px);
+}
+
+/* El flyer va inclinado a proposito; al hover se endereza. La pseudo-clase
+      gana en especificidad a `md:rotate-2` de Tailwind. */
+[data-foto] {
+  transition: transform 0.35s cubic-bezier(0.22, 0.7, 0.2, 1);
+}
+[data-foto]:hover {
+  transform: rotate(0deg) scale(1.02);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
+  /* 3. Sin esto el wipe queda a medio camino para siempre. */
+  .js-reveal [data-reveal] { clip-path: none !important; }
 }
