@@ -2,10 +2,12 @@
 import '../styles/global.css';
 import '@fontsource/barlow-condensed/latin-600.css';
 import '@fontsource/barlow-condensed/latin-700.css';
+import { SITE, SITE_NAME } from '../site';
 
-interface Props { title: string; description: string; }
-const { title, description } = Astro.props;
-const canonical = new URL(Astro.url.pathname, 'https://glock-0223.vercel.app').toString();
+interface Props { title: string; description: string; noindex?: boolean }
+const { title, description, noindex = false } = Astro.props;
+const canonical = new URL(Astro.url.pathname, SITE).toString();
+const ogImage = new URL('/images/og-glock.jpg', SITE).toString();
 ---
 <!doctype html>
 <html lang="es-AR">
@@ -17,13 +19,22 @@ const canonical = new URL(Astro.url.pathname, 'https://glock-0223.vercel.app').t
     <link rel="canonical" href={canonical} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE_NAME} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
-    <meta property="og:image" content="https://glock-0223.vercel.app/images/og-glock.jpg" />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="GLOCK Shows & Cypher. Trap, Rap y Hip-Hop en Mar del Plata." />
     <meta property="og:locale" content="es_AR" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+    <meta name="twitter:image:alt" content="GLOCK Shows & Cypher. Trap, Rap y Hip-Hop en Mar del Plata." />
     <meta name="theme-color" content="#0A0A0A" />
+    {noindex && <meta name="robots" content="noindex, follow" />}
   </head>
   <body class="bg-[#0A0A0A] text-[#F5F1E8] antialiased">
     <slot />

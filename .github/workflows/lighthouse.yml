@@ -1,0 +1,59 @@
+name: Lighthouse CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: lighthouse-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Validar tipos y contenido
+        run: npm run check
+
+      - name: Build
+        run: npx astro build
+
+      - name: Tests de contenido
+        run: node --test "tests/**/*.test.mjs"
+
+      - name: Verificar imagen OG
+        run: |
+          test -f dist/images/og-glock.jpg || { echo "::error::falta la imagen OG"; exit 1; }
+          size=$(stat -c%s dist/images/og-glock.jpg)
+          echo "og-glock.jpg: ${size} bytes"
+          test "$size" -lt 300000 || { echo "::error::la imagen OG supera 300KB"; exit 1; }
+
+      - name: Presupuesto de assets
+        run: |
+          # Suma de todas las variantes responsive generadas (no es lo que descarga
+          # una visita: el navegador pide una sola por srcset, ~460KB en total).
+          budget=3200000
+          total=$(du -sb dist/_astro | cut -f1)
+          echo "_astro total: ${total} bytes (presupuesto ${budget})"
+          test "$total" -lt "$budget" || { echo "::error::bundle superado"; exit 1; }
+
+      - name: Lighthouse
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          configPath: ./lighthouserc.json
+          uploadArtifacts: false

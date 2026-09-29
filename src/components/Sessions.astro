@@ -1,18 +1,20 @@
 ---
-import data from '../content/glock.json';
+import { data } from '../data';
 import { ytId } from '../utils/seo';
 const pubs = data.sessions.filter((s) => s.estado === 'publicada');
 const lead = pubs[pubs.length - 1];
 const rest = pubs.slice(0, -1).reverse();
 const pendientes = data.sessions.filter((s) => s.estado !== 'publicada');
 const thumb = (id: string, q: string) => `https://i.ytimg.com/vi/${id}/${q}.jpg`;
+const avisame = (n: number) =>
+  `https://wa.me/5492235298014?text=${encodeURIComponent(`Avísenme cuando salga la Session #${n}`)}`;
 ---
 <section id="sessions" class="mx-auto max-w-6xl px-4 py-14 md:py-20">
   <h2 class="font-display h-display uppercase">Cypher session</h2>
   <div class="mt-8" data-yt-feature>
     <button type="button" data-yt-load={ytId(lead.yt)} data-yt-title={`Cypher Session #${lead.n} de GLOCK`} class="group block w-full text-left" aria-label={`Reproducir Cypher Session #${lead.n} acá mismo`}>
       <span class="relative block aspect-video w-full overflow-hidden bg-black">
-        <img src={thumb(ytId(lead.yt), 'maxresdefault')} alt={`Cypher Session #${lead.n} de GLOCK en Mar del Plata`} loading="lazy" width="1280" height="720" class="h-full w-full object-cover" onerror="this.onerror=null;this.src=this.src.replace('maxresdefault','hqdefault')" />
+        <img data-yt-thumb src={thumb(ytId(lead.yt), 'maxresdefault')} alt={`Cypher Session #${lead.n} de GLOCK en Mar del Plata`} loading="lazy" width="1280" height="720" class="h-full w-full object-cover" />
         <span class="absolute inset-0 grid place-items-center" aria-hidden="true">
           <span class="grid h-20 w-20 place-items-center rounded-full bg-[#4B0055] transition-colors group-hover:bg-[#C400FF] md:h-24 md:w-24">
             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#F5F1E8" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
@@ -40,14 +42,24 @@ const thumb = (id: string, q: string) => `https://i.ytimg.com/vi/${id}/${q}.jpg`
     {pendientes.map((s) => (
       <li class="flex flex-wrap items-baseline justify-between gap-4 border-t border-dashed border-white/30 py-4">
         <span class="font-display text-2xl uppercase text-white/60 md:text-3xl">Session #{s.n}</span>
-        <a href="https://wa.me/5492235298014?text=Av%C3%ADsenme%20cuando%20salga%20la%20Session%20%234" target="_blank" rel="noopener" class="underline underline-offset-4">Avísenme</a>
+        <a href={avisame(s.n)} target="_blank" rel="noopener" class="underline underline-offset-4">Avísenme</a>
       </li>
     ))}
   </ul>
 </section>
 <script is:inline>
-  (function () {
-    var feat = document.querySelector('[data-yt-feature]');
+    (function () {
+      var thumb = document.querySelector('[data-yt-thumb]');
+      if (thumb) {
+        thumb.addEventListener(
+          'error',
+          function () {
+            thumb.src = thumb.src.replace('maxresdefault', 'hqdefault');
+          },
+          { once: true },
+        );
+      }
+      var feat = document.querySelector('[data-yt-feature]');
     var now = document.querySelector('[data-yt-now]');
     var link = document.querySelector('[data-yt-link]');
     if (!feat) return;

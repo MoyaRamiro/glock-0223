@@ -110,6 +110,14 @@ a.tag:hover { background: #F5F1E8; color: #0A0A0A; border-color: #F5F1E8; }
 .row-link { transition: background 0.15s ease-out, color 0.15s ease-out; }
 .row-link:hover { background: #F5F1E8; color: #0A0A0A; }
 
+/* Links textuales en linea: minimo 24px de alto para cumplir WCAG 2.2 target size */
+.tap {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding-block: 0.1rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation: none !important; transition: none !important; }

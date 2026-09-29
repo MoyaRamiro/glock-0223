@@ -1,32 +1,54 @@
 ---
+import { Image } from 'astro:assets';
+import { getImage } from '../assets';
+
 interface Props {
   n: number; fecha: string; anio: number; lugar: string; direccion: string; maps: string;
   cypher: string[]; shows: string[]; extra: string; main: string | null;
   asistentes: number; mvp: string | null; destacado: string;
-  flyer: string; flyerAlt: string; postIg: string; mainFoto?: string; foto?: string; fotoAlt?: string; highlight?: string[]; flip: boolean;
+  flyer: string; flyerAlt: string; postIg: string; mainFoto?: string; foto?: string; fotoAlt?: string; highlight?: string[]; flip: boolean; eager?: boolean;
 }
 const p = Astro.props;
 const rot = p.flip ? 'md:-rotate-2' : 'md:rotate-2';
+const foto = getImage(p.foto);
 ---
 <article class="grid gap-6 border-t border-white/15 py-10 md:grid-cols-12 md:gap-8 md:py-14">
   <p aria-hidden="true" class="font-display text-stroke order-first leading-none md:col-span-2" style="font-size: clamp(4.5rem, 14vw, 9rem);">#{p.n}</p>
   <div class:list={['md:col-span-5', p.flip && 'md:order-3']}>
-    {p.foto ? (
+    {foto ? (
       <>
         <p class:list={['relative z-10 -mb-7 w-full bg-[#4B0055] px-4 py-3 text-center font-display text-4xl font-bold uppercase', rot]}>Glock #{p.n}</p>
-        <img src={p.foto} alt={p.fotoAlt ?? `Foto en vivo de GLOCK #${p.n}`} loading="lazy" width="1280" height="720" class="aspect-video w-full object-cover" onerror="this.remove()" />
+        <Image
+          src={foto}
+          alt={p.fotoAlt ?? `Foto en vivo de GLOCK #${p.n}`}
+          widths={[480, 800, 1200, 1600]}
+          sizes="(min-width: 768px) 42vw, 100vw"
+          loading={p.eager ? 'eager' : 'lazy'}
+          fetchpriority={p.eager ? 'high' : 'auto'}
+          decoding={p.eager ? 'sync' : 'async'}
+          class="aspect-video w-full object-cover"
+        />
       </>
     ) : (
       <div class:list={['grid max-w-md place-items-center bg-[#4B0055]', rot]}>
         <span class="col-start-1 row-start-1 p-4 text-center font-display text-5xl font-bold">GLOCK #{p.n}</span>
-        <img src={p.flyer} alt={p.flyerAlt} loading="lazy" width="800" height="1000" class="col-start-1 row-start-1 h-auto w-full object-cover" onerror="this.remove()" />
+        {getImage(p.flyer) && (
+          <Image
+            src={getImage(p.flyer)!}
+            alt={p.flyerAlt}
+            widths={[400, 800]}
+            sizes="(min-width: 768px) 42vw, 100vw"
+            loading="lazy"
+            class="col-start-1 row-start-1 h-auto w-full object-cover"
+          />
+        )}
       </div>
     )}
     {p.mainFoto && <img src={p.mainFoto} alt={`Foto de ${p.main} en vivo en GLOCK`} loading="lazy" width="800" height="600" class="mt-3 h-auto w-full max-w-md object-cover md:-rotate-1" onerror="this.remove()" />}
   </div>
   <div class="md:col-span-5">
     <h3 class="font-display text-4xl uppercase leading-none">Glock #{p.n} <span class="text-white/50">. {p.fecha}/{p.anio}</span></h3>
-    <p class="mt-2 text-white/80">{p.lugar} · {p.direccion} · <a href={p.maps} target="_blank" rel="noopener" class="underline underline-offset-4">Cómo llegar</a></p>
+    <p class="mt-2 text-white/80">{p.lugar} · {p.direccion} · <a href={p.maps} target="_blank" rel="noopener" class="tap underline underline-offset-4">Cómo llegar</a></p>
     <p class="mt-4"><strong class="font-display text-xl uppercase tracking-wide">Cypher. </strong>{p.cypher.map((c, i) => <>{i > 0 && ' · '}{p.highlight?.includes(c) ? <span class="underline underline-offset-4">{c}</span> : c}</>)}</p>
     <p class="mt-2"><strong class="font-display text-xl uppercase tracking-wide">Shows. </strong>{p.main && <><span class="font-display text-xl uppercase tracking-wide text-[#C400FF]">{p.main}</span> · </>}{p.shows.join(' · ')}</p>
     {p.extra && <p class="mt-2 text-white/70">{p.extra}</p>}

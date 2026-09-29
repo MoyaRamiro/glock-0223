@@ -13,11 +13,19 @@ import SerParte from '../components/SerParte.astro';
 import Faq from '../components/Faq.astro';
 import Contacto from '../components/Contacto.astro';
 import StickyCta from '../components/StickyCta.astro';
-import data from '../content/glock.json';
-import { orgJsonLd, websiteJsonLd, faqJsonLd, eventsJsonLd, videosJsonLd } from '../utils/seo';
-const lds = [orgJsonLd(), websiteJsonLd(), faqJsonLd(data.faq), ...eventsJsonLd(data.ediciones as never[]), ...videosJsonLd(data.sessions)];
+import { data } from '../data';
+import { orgJsonLd, websiteJsonLd, faqJsonLd, eventsJsonLd, videosJsonLd, proximaJsonLd } from '../utils/seo';
+import type { EdicionLd, ProximaLd } from '../utils/seo';
+const lds = [
+  orgJsonLd(),
+  websiteJsonLd(),
+  faqJsonLd(data.faq),
+  ...eventsJsonLd(data.ediciones as unknown as EdicionLd[]),
+  ...proximaJsonLd(data.proxima as ProximaLd),
+  ...videosJsonLd(data.sessions),
+];
 ---
 <Base title="GLOCK | Shows & Cypher. Trap, Rap y Hip-Hop en Mar del Plata" description="GLOCK Shows & Cypher en Mar del Plata: ronda cypher con MVP + shows de trap de artistas emergentes. Ediciones, artistas, Cypher Sessions y próxima fecha.">
-  {lds.map((ld) => <script type="application/ld+json" set:html={JSON.stringify(ld)} />)}
+    {lds.map((ld) => <script is:inline type="application/ld+json" set:html={JSON.stringify(ld)} />)}
   <Header /><main><Hero /><Manifiesto /><Ediciones /><Artistas /><Sessions /><SongWars /><Sponsors /><Proxima /><SerParte /><Faq /></main><Contacto /><StickyCta />
 </Base>

@@ -1,6 +1,6 @@
 ---
-import data from '../content/glock.json';
-const firstLink = (a: { ig: string; tiktok: string; yt: string }) => a.ig || a.tiktok || a.yt || '';
+import { data } from '../data';
+const firstLink = (a: { ig?: string; tiktok?: string; yt?: string }) => a.ig || a.tiktok || a.yt || '';
 ---
 <section id="artistas" class="border-y border-white/10 bg-[#120312]">
   <div class="mx-auto max-w-6xl px-4 py-14 md:py-20">

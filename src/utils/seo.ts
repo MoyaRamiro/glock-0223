@@ -1,4 +1,6 @@
-const SITE = 'https://glock-0223.vercel.app';
+import { getImage, logoImage } from '../assets';
+import { SITE, SITE_NAME } from '../site';
+
 const CONTACT = {
   whatsapp: 'https://wa.me/5492235298014',
   instagram: 'https://www.instagram.com/glock.0223/',
@@ -15,15 +17,64 @@ export interface FaqItem { q: string; a: string }
 export interface EdicionLd {
   n: number; fecha: string; anio: number; lugar: string; direccion: string;
   flyer: string; postIg: string; shows: string[]; cypher: string[];
+  main?: string | null; mvp?: string | null; asistentes?: number; maps?: string;
+  foto?: string; hora?: string; horaFin?: string; precio?: number; entradaGratis?: boolean;
+  estado?: string;
 }
+
+const isoDate = (fecha: string, anio: number, hora?: string): string => {
+  const [d, m] = fecha.split('/');
+  return `${anio}-${m.padStart(2, '0')}-${d.padStart(2, '0')}${hora ? `T${hora}:00-03:00` : ''}`;
+};
+
+const oferta = (e: EdicionLd): object | undefined => {
+  if (typeof e.precio !== 'number' && !e.entradaGratis) return undefined;
+  return {
+    '@type': 'Offer',
+    price: e.entradaGratis || e.precio === 0 ? '0' : String(e.precio),
+    priceCurrency: 'ARS',
+    availability: 'https://schema.org/InStock',
+    url: `${SITE}/#ediciones`,
+    validFrom: isoDate(e.fecha, e.anio, e.hora),
+  };
+};
+
+const descripcion = (e: EdicionLd): string => {
+  const partes = [
+    `GLOCK #${e.n} en ${e.lugar}, ${e.direccion}.`,
+    e.cypher.length ? `Cypher con ${e.cypher.join(', ')}.` : '',
+    e.shows.length ? `Shows de ${e.shows.join(', ')}.` : '',
+    e.mvp ? `MVP de la noche: ${e.mvp}.` : '',
+  ];
+  return partes.filter(Boolean).join(' ');
+};
 
 export function orgJsonLd(): object {
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    name: 'GLOCK Shows & Cypher',
+    name: SITE_NAME,
     url: SITE,
+    logo: `${SITE}${logoImage.src}`,
+    description:
+      'Productora de rap en Mar del Plata. Ronda cypher con MVP y shows de trap de artistas emergentes.',
     sameAs: [CONTACT.instagram, CONTACT.tiktok, CONTACT.youtube],
+    address: {
+      '@type': 'PostalAddress',
+      addressLocality: 'Mar del Plata',
+      addressRegion: 'Buenos Aires',
+      addressCountry: 'AR',
+    },
+    contactPoint: [
+      {
+        '@type': 'ContactPoint',
+        contactType: 'customer support',
+        telephone: '+54-223-529-8014',
+        email: 'glock08000@gmail.com',
+        availableLanguage: ['es-AR'],
+        url: `${SITE}/#contacto`,
+      },
+    ],
   };
 }
 
@@ -65,19 +116,72 @@ export function videosJsonLd(sessions: SessionLd[]): object[] {
     }));
 }
 export function eventsJsonLd(ediciones: EdicionLd[]): object[] {
-  return ediciones.map((e) => ({
-    '@context': 'https://schema.org',
-    '@type': 'MusicEvent',
-    name: `GLOCK #${e.n}. Shows & Cypher en Mar del Plata`,
-    startDate: `${e.anio}-${e.fecha.split('/').reverse().join('-')}`,
-    eventStatus: 'https://schema.org/EventScheduled',
-    location: {
-      '@type': 'Place',
-      name: e.lugar,
-      address: { '@type': 'PostalAddress', streetAddress: e.direccion, addressLocality: 'Mar del Plata', addressCountry: 'AR' },
-    },
-    performer: [...e.cypher, ...e.shows].map((p) => ({ '@type': 'MusicGroup', name: p })),
-    image: [`${SITE}${e.flyer}`],
-    url: e.postIg,
-  }));
+  const eventos = ediciones.map((e) => {
+    const foto = getImage(e.foto);
+    const flyers = getImage(e.flyer);
+    const imagen = foto ?? flyers;
+    const start = isoDate(e.fecha, e.anio, e.hora);
+    // No hay duracion confirmada en el contenido, asi que `endDate` solo se emite
+    // si el show declara una hora de cierre explicita.
+    const end = e.horaFin ? isoDate(e.fecha, e.anio, e.horaFin) : undefined;
+    const ofertaLd = oferta(e);
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'MusicEvent',
+      name: `GLOCK #${e.n}. Shows & Cypher en Mar del Plata`,
+      description: descripcion(e),
+      inLanguage: 'es-AR',
+      startDate: start,
+      ...(end ? { endDate: end } : {}),
+      eventStatus: 'https://schema.org/EventScheduled',
+      eventAttendanceMode: 'https://schema.org/OfflineEvent',
+      location: {
+        '@type': 'Place',
+        name: e.lugar,
+        address: {
+          '@type': 'PostalAddress',
+          streetAddress: e.direccion,
+          addressLocality: 'Mar del Plata',
+          addressRegion: 'Buenos Aires',
+          addressCountry: 'AR',
+        },
+        ...(e.maps ? { hasMap: e.maps } : {}),
+      },
+      organizer: { '@type': 'Organization', name: SITE_NAME, url: `${SITE}/#contacto` },
+      performer: [...e.cypher, ...e.shows].map((p) => ({ '@type': 'MusicGroup', name: p })),
+      ...(imagen ? { image: [`${SITE}${imagen.src}`] } : {}),
+      url: `${SITE}/#ediciones`,
+      sameAs: [e.postIg],
+      ...(ofertaLd ? { offers: ofertaLd } : {}),
+    };
+  });
+
+  return eventos;
+}
+
+export interface ProximaLd {
+  n: number; estado: string; fecha?: string; anio?: number; hora?: string; horaFin?: string;
+  lugar?: string; direccion?: string; maps?: string; precio?: number; entradaGratis?: boolean;
+  cypher?: string[]; shows?: string[]; postIg?: string; entradasUrl?: string;
+}
+
+export function proximaJsonLd(p?: ProximaLd | null): object[] {
+  if (!p?.fecha || !p.anio) return [];
+  const e: EdicionLd = {
+    n: p.n,
+    fecha: p.fecha,
+    anio: p.anio,
+    lugar: p.lugar ?? 'Mar del Plata',
+    direccion: p.direccion ?? 'Mar del Plata',
+    flyer: '',
+    postIg: p.postIg ?? `${SITE}/#ediciones`,
+    shows: p.shows ?? [],
+    cypher: p.cypher ?? [],
+    hora: p.hora,
+    horaFin: p.horaFin,
+    precio: p.precio,
+    entradaGratis: p.entradaGratis,
+    maps: p.maps,
+  };
+  return eventsJsonLd([e]).slice(0, 1);
 }

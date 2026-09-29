@@ -1,5 +1,7 @@
 ---
-import data from '../content/glock.json';
+import { Image } from 'astro:assets';
+import { getImage } from '../assets';
+import { data } from '../data';
 const sponsors = data.sponsors as { nombre: string; logo?: string }[];
 ---
 <section id="sponsors" class="mx-auto max-w-6xl px-4 py-14 md:py-20">
@@ -7,8 +9,8 @@ const sponsors = data.sponsors as { nombre: string; logo?: string }[];
   <ul class="mt-8 flex flex-wrap items-center gap-x-10 gap-y-4">
     {sponsors.map((s) => (
       <li class="font-display text-3xl uppercase opacity-80">
-        {s.logo
-          ? <img src={s.logo} alt={`Logo ${s.nombre}, sponsor de GLOCK`} loading="lazy" width="600" height="300" class="h-40 w-auto object-contain md:h-44" onerror="this.remove()" />
+        {getImage(s.logo)
+          ? <Image src={getImage(s.logo)!} alt={`Logo ${s.nombre}, sponsor de GLOCK`} widths={[176, 352]} sizes="(min-width: 768px) 176px, 160px" loading="lazy" decoding="async" class="h-40 w-auto object-contain md:h-44" />
           : s.nombre}
       </li>
     ))}

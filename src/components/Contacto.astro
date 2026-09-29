@@ -1,5 +1,5 @@
 ---
-import data from '../content/glock.json';
+import { data } from '../data';
 ---
 <footer id="contacto" class="border-t border-white/10">
   <div class="mx-auto max-w-6xl px-4 pb-24 pt-12 md:pb-12">
@@ -7,8 +7,8 @@ import data from '../content/glock.json';
     <div class="mt-6 grid gap-6 md:grid-cols-2">
       <div class="text-white/70">
         <p>Shows &amp; Cypher. Mar del Plata, Buenos Aires, Argentina.</p>
-        <p class="mt-2">WhatsApp <a class="underline underline-offset-4" href={data.contacto.whatsapp} target="_blank" rel="noopener">{data.contacto.telefonoLabel}</a></p>
-        <p>Email <a class="underline underline-offset-4" href="mailto:glock08000@gmail.com">glock08000@gmail.com</a></p>
+        <p class="mt-2">WhatsApp <a class="tap underline underline-offset-4" href={data.contacto.whatsapp} target="_blank" rel="noopener">{data.contacto.telefonoLabel}</a></p>
+        <p>Email <a class="tap underline underline-offset-4" href="mailto:glock08000@gmail.com">glock08000@gmail.com</a></p>
       </div>
       <div class="flex flex-wrap content-start gap-3">
         <a class="btn-ghost" href={data.contacto.instagram} target="_blank" rel="noopener">Instagram</a>
