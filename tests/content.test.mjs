@@ -382,6 +382,31 @@ test('el schema acepta un show que cruza la medianoche', async () => {
   }
 });
 
+test('un evento ya ocurrido no se anuncia con entradas disponibles', opciones, () => {
+  // Las cuatro ediciones ya pasaron, asi que ninguna puede seguir InStock. El
+  // precio se conserva porque es un dato real del evento, pero la disponibilidad
+  // tiene que decir SoldOut o le estamos mintiendo a Google con "comprar entradas".
+  const eventos = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+    .map(([, c]) => JSON.parse(c))
+    .flat()
+    .filter((b) => b['@type'] === 'MusicEvent');
+  const ahora = Date.now();
+  let revisados = 0;
+  for (const e of eventos) {
+    if (!e.offers) continue;
+    const fin = new Date(e.endDate ?? e.startDate).getTime();
+    if (fin < ahora) {
+      revisados++;
+      assert.equal(
+        e.offers.availability,
+        'https://schema.org/SoldOut',
+        `${e.name} ya ocurrio pero se anuncia como disponible`,
+      );
+    }
+  }
+  assert.ok(revisados > 0, 'ningun evento pasado para verificar');
+});
+
 test('el schema rechaza horaFin identico a hora', async () => {
   const { glockSchema } = await import('../src/content/schema.ts');
   const raw = JSON.parse(leer('src/content/glock.json'));

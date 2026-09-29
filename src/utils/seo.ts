@@ -41,13 +41,28 @@ const isoFin = (fecha: string, anio: number, hora: string | undefined, horaFin: 
   return isoDate(fecha, anio, horaFin);
 };
 
-const oferta = (e: EdicionLd): object | undefined => {
+/**
+ * Momento en que el evento termina, para poder compararlo contra el reloj. Si el
+ * contenido no declara `horaFin`, el show se resuelve con la hora de arranque.
+ */
+const finDeEvento = (e: EdicionLd): string =>
+  e.horaFin ? isoFin(e.fecha, e.anio, e.hora, e.horaFin) : isoDate(e.fecha, e.anio, e.hora);
+
+/** Un evento cuya fecha ya paso no se puede volver a comprar. */
+const yaOcurrio = (e: EdicionLd, ahora: Date = new Date()): boolean =>
+  new Date(finDeEvento(e)).getTime() < ahora.getTime();
+
+const oferta = (e: EdicionLd, ahora?: Date): object | undefined => {
   if (typeof e.precio !== 'number' && !e.entradaGratis) return undefined;
   return {
     '@type': 'Offer',
     price: e.entradaGratis || e.precio === 0 ? '0' : String(e.precio),
     priceCurrency: 'ARS',
-    availability: 'https://schema.org/InStock',
+    // Las cuatro ediciones ya ocurrieron. Anunciarlas como `InStock` le dice a
+    // Google que hay entradas a la venta de algo que termino hace meses, asi que
+    // el precio se conserva como dato historico pero la disponibilidad es
+    // `SoldOut`. Cuando #5 tenga fecha, vuelve solo a `InStock`.
+    availability: yaOcurrio(e, ahora) ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
     url: `${SITE}/#ediciones`,
     validFrom: isoDate(e.fecha, e.anio, e.hora),
   };
