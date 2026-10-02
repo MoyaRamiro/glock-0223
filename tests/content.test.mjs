@@ -1001,3 +1001,75 @@ test('el build trae los reveals con jerarquia', opciones, () => {
     'quedo un data-reveal pelado: debe ser lead o item',
   );
 });
+
+test('ningun reveal anida otro reveal', opciones, () => {
+  // Un reveal dentro de otro reveal compone dos transforms: el hijo se mueve dos
+  // veces y la coreografia se ve rota. Esta es la regla que gobierna el markup,
+  // asi que va un guard general y no otra lista de wrappers: el test de al lado
+  // es una whitelist de tres clases concretas y ademas mira `Hero`, que todavia
+  // no tiene ningun reveal. Los dos se solapan a proposito y no se tocan.
+  //
+  // Se recorre el markup y no el fuente porque "ser descendiente de" no se
+  // expresa en texto: el `.map` de EdicionCard y el de SerParte deciden cuantos
+  // reveals hay y donde caen, y solo el DOM ya renderizado lo dice.
+  const markup = html.replace(/<script[\s\S]*?<\/script>/g, '');
+  // Los void no se apilan: no traen tag de cierre, asi que empujarlos
+  // desincroniza la pila para todo lo que venga despues y el guard empieza a
+  // inventar anidamientos. Los de cierre implicito se cierran antes de apilar:
+  // `<li>` o `<p>` pueden no traer el suyo y dejarian al anterior colgado.
+  const SIN_CIERRE = new Set([
+    'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
+    'link', 'meta', 'param', 'source', 'track', 'wbr',
+  ]);
+  const CIERRE_IMPLICITO = new Set([
+    'dd', 'dt', 'li', 'option', 'p', 'rp', 'rt', 'td', 'th', 'thead', 'tbody', 'tfoot', 'tr',
+  ]);
+  // Se recortan los tags largos por el medio, no por el final: el rol
+  // (`data-reveal="lead"`) esta al cierre y sin el el mensaje dice que algo se
+  // anida pero no que cosa.
+  const etiquetar = (t) => (t.length > 110 ? `${t.slice(0, 60)}...${t.slice(-46)}` : t);
+  const pila = [];
+  const anidados = [];
+  let revelaciones = 0;
+  const re = /<(\/?)([a-zA-Z][\w:-]*)((?:"[^"]*"|'[^']*'|[^>"'])*?)(\/?)>/g;
+  let m;
+  while ((m = re.exec(markup))) {
+    const nombre = m[2].toLowerCase();
+    if (m[1] === '/') {
+      // Se corta hasta el ultimo abierto con ese nombre. Si la pila se
+      // desincronizo un poco, el corte la deja sana en vez de tirar el test por
+      // algo que no es un anidamiento: el error tiene que ser del markup real.
+      const i = pila.findLastIndex((e) => e.nombre === nombre);
+      if (i >= 0) pila.length = i;
+      continue;
+    }
+    if (m[4] === '/' || SIN_CIERRE.has(nombre)) continue;
+    if (CIERRE_IMPLICITO.has(nombre)) {
+      const i = pila.findLastIndex((e) => e.nombre === nombre);
+      if (i >= 0) pila.length = i;
+    }
+    // El scope no es un reveal: el observer no lo observa, solo le saca el
+    // indice. Por eso el patron exige el rol y `data-reveal-scope` no matchea:
+    // todo item es hijo de un scope y eso es lo correcto, no un anidamiento.
+    const rev = /\sdata-reveal="(?:lead|item)"/.test(m[3] || '');
+    if (rev) revelaciones += 1;
+    const ancestro = pila.findLast((e) => e.rev);
+    if (rev && ancestro) anidados.push(`${etiquetar(m[0])} dentro de ${etiquetar(ancestro.tag)}`);
+    pila.push({ nombre, rev, tag: m[0] });
+  }
+  // Anti-vacuitud: el recorrido tiene que haber visto tantos reveals como el
+  // markup declara. Si el regex de tags dejara de matchear algo, la pila queda
+  // vacia y el deepEqual de abajo pasa sin haber mirado nada: un guard que
+  // pasa porque no encuentra nada es peor que no tener guard.
+  const declarados = (markup.match(/data-reveal="(?:lead|item)"/g) || []).length;
+  assert.equal(
+    revelaciones,
+    declarados,
+    `el recorrido vio ${revelaciones} reveals y el markup declara ${declarados}: el regex de tags dejo de matchear`,
+  );
+  assert.deepEqual(
+    anidados,
+    [],
+    `un reveal anida otro reveal:\n  ${anidados.join('\n  ')}`,
+  );
+});
