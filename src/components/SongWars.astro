@@ -4,12 +4,12 @@ import { getImage } from '../assets';
 import { data } from '../data';
 const flyers = data.songwars.map((s) => ({ ...s, img: getImage(s.flyer) }));
 ---
-<section id="songwars" class="bg-[#4B0055]">
+<section id="songwars" class="bg-[#4B0055]" data-reveal-scope>
   <div class="mx-auto max-w-6xl px-4 py-14 md:py-20">
-    <h2 class="font-display h-display uppercase" data-reveal data-misalign>Song-wars</h2>
-    <p class="mt-4 max-w-2xl text-lg">Competencia virtual: cada artista presenta su canción, un jurado evalúa con puntaje y los ganadores se llevan premios.</p>
+    <h2 class="font-display h-display uppercase" data-reveal="lead" data-misalign>Song-wars</h2>
+    <p class="mt-4 max-w-2xl text-lg" data-reveal="item">Competencia virtual: cada artista presenta su canción, un jurado evalúa con puntaje y los ganadores se llevan premios.</p>
     {flyers.map((s) => (
-      <article class="mt-10 grid gap-8 md:grid-cols-12">
+      <article class="mt-10 grid gap-8 md:grid-cols-12" data-reveal="item">
         <div class="md:col-span-5">
           <a href={s.post} target="_blank" rel="noopener" aria-label={`Ver post del flyer de SongWars vol.${s.vol} en Instagram`} class="grid max-w-md place-items-center bg-[#0A0A0A] md:rotate-1" data-foto>
             <span class="col-start-1 row-start-1 p-4 text-center font-display text-4xl font-bold uppercase">Songwars vol.{s.vol}</span>

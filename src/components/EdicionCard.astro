@@ -26,7 +26,7 @@ const precioTxt = p.entradaGratis
     ? `$${p.precio.toLocaleString('es-AR')}`
     : null;
 ---
-<article class="grid gap-6 border-t border-white/15 py-10 md:grid-cols-12 md:gap-8 md:py-14">
+<article class="grid gap-6 border-t border-white/15 py-10 md:grid-cols-12 md:gap-8 md:py-14" data-reveal="item">
   <p aria-hidden="true" class="font-display text-stroke order-first leading-none md:col-span-2" style="font-size: clamp(4.5rem, 14vw, 9rem);">#{p.n}</p>
   <div class:list={['md:col-span-5', p.flip && 'md:order-3']}>
     {foto ? (

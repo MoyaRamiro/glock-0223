@@ -2,10 +2,10 @@
 import { data } from '../data';
 const firstLink = (a: { ig?: string; tiktok?: string; yt?: string }) => a.ig || a.tiktok || a.yt || '';
 ---
-<section id="artistas" class="border-y border-white/10 bg-[#120312]">
+<section id="artistas" class="border-y border-white/10 bg-[#120312]" data-reveal-scope>
   <div class="mx-auto max-w-6xl px-4 py-14 md:py-20">
-    <h2 class="font-display h-display uppercase" data-reveal data-misalign>Pasaron<br />por Glock</h2>
-    <ul class="mt-8 flex flex-wrap gap-x-2 gap-y-8 md:gap-x-3">
+    <h2 class="font-display h-display uppercase" data-reveal="lead" data-misalign>Pasaron<br />por Glock</h2>
+    <ul class="mt-8 flex flex-wrap gap-x-2 gap-y-8 md:gap-x-3" data-reveal="item">
       {data.artistas.map((a) => {
         const href = firstLink(a);
         return (
@@ -19,6 +19,6 @@ const firstLink = (a: { ig?: string; tiktok?: string; yt?: string }) => a.ig || 
         );
       })}
     </ul>
-    <p class="mt-8 text-white/60">¿Sos artista y querés tu link acá? Escribinos por WhatsApp.</p>
+    <p class="mt-8 text-white/60" data-reveal="item">¿Sos artista y querés tu link acá? Escribinos por WhatsApp.</p>
   </div>
 </section>

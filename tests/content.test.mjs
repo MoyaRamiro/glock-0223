@@ -936,3 +936,68 @@ test('el lead no consume indice en la pasada de escalonado', opciones, () => {
     'la pasada de indices no saltea el lead: el lead toma el indice 0 y todos los items de su scope arrancan 60ms tarde',
   );
 });
+
+test('ningun reveal queda fuera de un scope', opciones, () => {
+  // EdicionCard aporta reveals pero no scope: su <article> se renderiza
+  // dentro del scope de Ediciones. Ese es el unico parcial permitido.
+  const parciales = new Set(['EdicionCard']);
+  const archivos = [
+    'Artistas', 'Contacto', 'EdicionCard', 'Ediciones', 'Faq', 'Manifiesto',
+    'Proxima', 'SerParte', 'Sessions', 'SongWars', 'Sponsors',
+  ];
+  for (const nombre of archivos) {
+    const src = leer(`src/components/${nombre}.astro`);
+    const reveals = (src.match(/data-reveal="(?:lead|item)"/g) || []).length;
+    if (reveals === 0) continue;
+    if (parciales.has(nombre)) continue;
+    assert.match(src, /data-reveal-scope/, `${nombre}.astro tiene ${reveals} reveals y ningun scope`);
+  }
+  assert.deepEqual([...parciales], ['EdicionCard'], 'cambio el set de parciales: revisa quien quedo huerfano');
+});
+
+test('los wrappers que agrupan items no son items', opciones, () => {
+  // Un reveal dentro de otro reveal compone dos transforms: el hijo se mueve
+  // dos veces y la coreografia se ve rota. Estos wrappers existen para agrupar
+  // items, asi que si se convierten en item, todo lo que contienen anima doble.
+  // Se chequean por clase exacta: el nombre del wrapper es lo unico estable
+  // de cada componente, y exigir la comilla de cierre evita matchear al hermano.
+  const wrappers = [
+    ['Ediciones', 'class="mt-4"'],
+    ['SerParte', 'class="mt-8 border-b border-white/15"'],
+    ['Hero', 'class="mt-10 grid gap-8 md:grid-cols-12"'],
+  ];
+  for (const [nombre, clase] of wrappers) {
+    const src = leer(`src/components/${nombre}.astro`);
+    const escapada = clase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const encontrado = new RegExp(`<[^>]*${escapada}[^>]*>`).exec(src);
+    assert.ok(encontrado, `${nombre}.astro no tiene el wrapper ${clase}: revisa que el plan siga vigente`);
+    assert.ok(
+      !encontrado[0].includes('data-reveal'),
+      `${nombre}.astro: el wrapper ${clase} no debe ser item, sus hijos ya lo son`,
+    );
+  }
+});
+
+test('el build trae los reveals con jerarquia', opciones, () => {
+  // Se mide sobre el markup, no sobre el HTML crudo. El modulo va inline dentro
+  // del index.html y el bundle lleva sus propios `data-reveal`: el
+  // querySelectorAll y el closest del scope. Sobre el crudo el conteo de scopes
+  // sale inflado en uno y el assert de los pelados no tendria forma de pasar
+  // nunca, porque `[data-reveal]` y `data-reveal-scope` lo matchean igual que un
+  // atributo sin valor. Los scripts no son atributos, asi que salen.
+  const markup = html.replace(/<script[\s\S]*?<\/script>/g, '');
+  const scopes = (markup.match(/data-reveal-scope/g) || []).length;
+  const leads = (markup.match(/data-reveal="lead"/g) || []).length;
+  const items = (markup.match(/data-reveal="item"/g) || []).length;
+  assert.ok(scopes >= 9, `se esperaban al menos 9 scopes, hay ${scopes}`);
+  assert.ok(leads >= 9, `se esperaban al menos 9 leads, hay ${leads}`);
+  assert.ok(items >= 15, `se esperaban al menos 15 items, hay ${items}`);
+  // `(?![-\w=])` y no el `(?!\s*=)` del plan: despues de `data-reveal` puede
+  // venir un `=` (el rol) o un `-` (`data-reveal-scope`), y los dos son reveal
+  // legitimo. Lo pelado es lo que no sigue de ninguno: `data-reveal>` o
+  // `data-reveal data-misalign`.
+  assert.ok(
+    !/data-reveal(?![-\w=])/.test(markup),
+    'quedo un data-reveal pelado: debe ser lead o item',
+  );
+});

@@ -4,9 +4,9 @@ import { getImage } from '../assets';
 import { data } from '../data';
 const sponsors = data.sponsors as { nombre: string; logo?: string }[];
 ---
-<section id="sponsors" class="mx-auto max-w-6xl px-4 py-14 md:py-20">
-  <h2 class="font-display h-display uppercase" data-reveal data-misalign>Apoyan<br />la escena</h2>
-  <ul class="mt-8 flex flex-wrap items-center gap-x-10 gap-y-4">
+<section id="sponsors" class="mx-auto max-w-6xl px-4 py-14 md:py-20" data-reveal-scope>
+  <h2 class="font-display h-display uppercase" data-reveal="lead" data-misalign>Apoyan<br />la escena</h2>
+  <ul class="mt-8 flex flex-wrap items-center gap-x-10 gap-y-4" data-reveal="item">
     {sponsors.map((s) => (
       <li class="font-display text-3xl uppercase opacity-80">
         {getImage(s.logo)

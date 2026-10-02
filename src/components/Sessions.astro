@@ -9,9 +9,9 @@ const thumb = (id: string, q: string) => `https://i.ytimg.com/vi/${id}/${q}.jpg`
 const avisame = (n: number) =>
   `https://wa.me/5492235298014?text=${encodeURIComponent(`Avísenme cuando salga la Session #${n}`)}`;
 ---
-<section id="sessions" class="mx-auto max-w-6xl px-4 py-14 md:py-20">
-  <h2 class="font-display h-display uppercase" data-reveal data-misalign>Cypher session</h2>
-  <div class="mt-8" data-yt-feature>
+<section id="sessions" class="mx-auto max-w-6xl px-4 py-14 md:py-20" data-reveal-scope>
+  <h2 class="font-display h-display uppercase" data-reveal="lead" data-misalign>Cypher session</h2>
+  <div class="mt-8" data-yt-feature data-reveal="item">
     <button type="button" data-yt-load={ytId(lead.yt)} data-yt-title={`Cypher Session #${lead.n} de GLOCK`} class="group block w-full text-left" aria-label={`Reproducir Cypher Session #${lead.n} acá mismo`}>
       <span class="relative block aspect-video w-full overflow-hidden bg-black">
         <img data-yt-thumb src={thumb(ytId(lead.yt), 'maxresdefault')} alt={`Cypher Session #${lead.n} de GLOCK en Mar del Plata`} loading="lazy" width="1280" height="720" class="h-full w-full object-cover" />
@@ -27,7 +27,7 @@ const avisame = (n: number) =>
       <a href={lead.yt} target="_blank" rel="noopener" class="underline underline-offset-4" data-yt-link>Ver en YouTube</a>
     </p>
   </div>
-  <ul class="mt-6">
+  <ul class="mt-6" data-reveal="item">
     {rest.map((s) => (
       <li class="border-t border-white/15">
         <div class="flex items-baseline justify-between gap-4 py-4">
