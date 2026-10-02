@@ -608,6 +608,24 @@ function jsEjecutado(markup) {
   return { bytes, codigo: [...modulos, ...clasicos].join('\n'), modulos: modulos.join('\n'), clasicos: clasicos.join('\n') };
 }
 
+/**
+ * El cuerpo de la regla que arranca en `desde`, contando llaves en vez de cortar
+ * en el primer `}`. Un `@keyframes` abre un bloque por cada paso, asi que el
+ * corte corto dejaria verificado `from` y sin mirar `to`: justo donde se
+ * colaria un `opacity: 0` que nadie ve. Lo mismo pasa con un `@media` que
+ * envuelve reglas: hay que bajar hasta su llave de cierre, no hasta la de la
+ * primera regla que contiene.
+ */
+function cuerpoDe(css, desde) {
+  const abierto = css.indexOf('{', desde);
+  let prof = 0;
+  for (let i = abierto; i < css.length; i++) {
+    if (css[i] === '{') prof++;
+    else if (css[i] === '}' && --prof === 0) return css.slice(abierto + 1, i);
+  }
+  return '';
+}
+
 test('el presupuesto de JS sigue siendo trivial', opciones, () => {
   const { bytes } = jsEjecutado(html);
   // 2.5 KB hoy. El techo esta para que un modulo de scroll o una libreria
@@ -1164,5 +1182,127 @@ test('ningun reveal anida otro reveal', opciones, () => {
     anidados,
     [],
     `un reveal anida otro reveal:\n  ${anidados.join('\n  ')}`,
+  );
+});
+
+test('la coreografia del hero no esconde el h1', () => {
+  // El h1 es el LCP y la invariante no es "su regla de clase no tiene
+  // `opacity: 0`": es que este pintado en el primer frame. El estado inicial de
+  // una animacion vive adentro del keyframe, asi que el keyframe es lo que hay
+  // que mirar. Un `opacity: 0` agregado ahi no toca la clase, no rompe ninguna
+  // otra guarda y aun asi corre el LCP.
+  const css = leer('src/styles/global.css');
+  // El `indexOf` lleva el punto adelante a proposito: el nombre del keyframe
+  // contiene `glock-hero-title` pero no `.glock-hero-title`, asi que el match cae
+  // en la regla de clase y no en el keyframe.
+  const i = css.indexOf('.glock-hero-title');
+  assert.ok(i > 0, 'no existe la entrada del h1');
+  const regla = cuerpoDe(css, i);
+  assert.ok(!/opacity:\s*0/.test(regla), 'el h1 arranca en opacity 0: rompe el LCP');
+  assert.ok(!/clip-path/.test(regla), 'el h1 arranca con clip: rompe el LCP');
+  // El `transform` no se exige en la clase: alla no va. La clase solo declara
+  // que corre el keyframe, y el keyframe es quien decide de que propiedad se
+  // mueve el h1. Exigirlo en la clase daria verde a un h1 que no se mueve. Lo que
+  // si tiene que quedar enganchado es el nombre, para que cambiar uno sin cambiar
+  // el otro no deje la regla apuntando a un keyframe que no existe.
+  assert.match(
+    regla,
+    /animation:\s*glock-hero-title-in\b/,
+    'el h1 no corre el keyframe glock-hero-title-in: la regla queda sin efecto y el h1 no hace su entrada',
+  );
+
+  const k = css.indexOf('@keyframes glock-hero-title-in');
+  assert.ok(k > 0, 'no existe el keyframe de entrada del h1');
+  const cuerpo = cuerpoDe(css, k);
+  assert.match(
+    cuerpo,
+    /transform/,
+    'glock-hero-title-in no anima transform: el h1 tiene que entrar moviendose',
+  );
+  assert.ok(
+    !/opacity:\s*0/.test(cuerpo),
+    'glock-hero-title-in arranca en opacity 0: el navegador espera a pintar el h1 y el timestamp de LCP se corre',
+  );
+
+  // Los de apoyo si pueden arrancar en opacity 0: no son el elemento LCP, y sin
+  // el no se veria la coreografia.
+  const j = css.indexOf('.glock-hero-rise');
+  assert.ok(j > 0, 'no existe la entrada de los elementos de apoyo');
+  assert.match(cuerpoDe(css, j), /animation/, 'los elementos de apoyo no animan');
+});
+
+test('los pasos del hero no se pisan entre si', () => {
+  // El CTA (linea 14) vive dentro del grid (linea 11). Si el grid tambien
+  // animara, el CTA compondria dos transform y entraria corrido. El caso se
+  // detecta por conteo y no por recorrido del arbol: los cuatro rises legitimos
+  // son hojas y ninguno envuelve a otro, asi que un rise de mas es un rise
+  // anidado.
+  const src = leer('src/components/Hero.astro');
+  const lineas = src.split(/\r?\n/);
+  const atributos = [...src.matchAll(/data-hero-step="(\d)"/g)];
+  const pasos = atributos.map(([, n]) => Number(n));
+  const conPaso = lineas.filter((l) => /data-hero-step="\d"/.test(l));
+  assert.equal(
+    conPaso.length,
+    4,
+    `se esperaban 4 lineas con data-hero-step, hay ${conPaso.length} (pasos: ${pasos.join(', ') || 'ninguno'})`,
+  );
+  // El conteo por atributo va aparte del conteo por linea: dos pasos en la misma
+  // linea dan 4 lineas y 5 atributos, y el primer assert no lo veria.
+  assert.equal(
+    atributos.length,
+    4,
+    `se esperaban 4 atributos data-hero-step, hay ${atributos.length} en ${conPaso.length} lineas: dos pasos en la misma linea se pisan entre si`,
+  );
+  assert.deepEqual(
+    [...new Set(pasos)].sort((a, b) => a - b),
+    [1, 2, 3, 4],
+    `los pasos del hero son ${pasos.join(', ') || 'ninguno'}; se esperaban 1,2,3,4 correlativos`,
+  );
+
+  const titulo = lineas.filter((l) => l.includes('glock-hero-title'));
+  const rise = lineas.filter((l) => l.includes('glock-hero-rise'));
+  assert.equal(titulo.length, 1, `glock-hero-title deberia estar en una sola linea, hay ${titulo.length}`);
+  assert.equal(
+    rise.length,
+    4,
+    `glock-hero-rise deberia estar en 4 lineas, una por paso, hay ${rise.length}: un rise de mas es un rise anidado y compone dos transform`,
+  );
+  const doble = lineas.filter((l) => l.includes('glock-hero-title') && l.includes('glock-hero-rise'));
+  assert.deepEqual(
+    doble,
+    [],
+    'una misma linea lleva glock-hero-title y glock-hero-rise: son dos animaciones en un elemento y componen transform',
+  );
+  assert.ok(
+    !titulo[0].includes('data-hero-step'),
+    'el h1 lleva data-hero-step: su animacion arranca en 0 y el unico retardo posible seria el de la propia animacion',
+  );
+});
+
+test('la coreografia del hero respeta reduced-motion', () => {
+  const css = leer('src/styles/global.css');
+  const i = css.indexOf('@media (prefers-reduced-motion: reduce)');
+  assert.ok(i > 0, 'falta el bloque prefers-reduced-motion');
+  const bloque = cuerpoDe(css, i);
+  // Esta assert ya estaba cubierta antes de la coreografia: la regla general
+  // `*, *::before, *::after { animation: none !important }` es la que apaga el
+  // rise del hero. No es cobertura nueva, es un candado sobre esa regla: si
+  // alguien la relaja por ser demasiado amplia, el hero vuelve a animarse para
+  // quien pidio menos movimiento y ninguna otra guarda lo ve.
+  assert.match(
+    bloque,
+    /animation:\s*none\s*!important/,
+    'reduced-motion no mata las animaciones: el hero se animaria igual para quien pidio menos movimiento',
+  );
+  assert.match(
+    bloque,
+    /\.js-reveal\s*\[data-reveal="item"\]\s*\{[^}]*opacity:\s*1/,
+    'reduced-motion no fuerza opacity 1 en los items: el estado final pasa a depender de que el JS entregue .is-in',
+  );
+  assert.match(
+    bloque,
+    /\.js-reveal\s*\[data-reveal="item"\]\s*\{[^}]*transform:\s*none\s*!important/,
+    'reduced-motion no anula el translateY de los items: quedan corridos en el sitio final',
   );
 });

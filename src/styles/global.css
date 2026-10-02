@@ -148,8 +148,8 @@ a.tag:hover { background: #F5F1E8; color: #0A0A0A; border-color: #F5F1E8; }
  *    Al reves —poner `opacity: 0` en el estado base— dejaria el
  *    contenido en blanco si el JS falla.
  *
- * 2. Solo se animan `clip-path` y `transform`, que no mueven la pagina.
- *    `height`, `top` o `margin` aca darian layout shift.
+ * 2. Solo se animan `clip-path`, `transform` y `opacity`, que no mueven la
+ *    pagina. `height`, `top` o `margin` aca darian layout shift.
  *
  * 3. El wipe depende de una `transition` para pasar de oculto a visible.
  *    Por eso el bloque de `prefers-reduced-motion` de abajo tiene que
@@ -208,9 +208,41 @@ a.tag:hover { background: #F5F1E8; color: #0A0A0A; border-color: #F5F1E8; }
   transform: rotate(0deg) scale(1.02);
 }
 
+/* 4. Coreografia de carga del hero. El h1 entra solo con transform: arranca
+      pintado, asi que el LCP se registra en el primer frame. Si el keyframe lo
+      arrancara en opacity 0 —o con el clip cerrado— el navegador esperaria a que
+      se pinta y el timestamp de LCP se moveria. Los elementos de apoyo si animan
+      opacity: no son el elemento LCP, y sin ese fade la coreografia no se ve. */
+@keyframes glock-hero-title-in {
+  from { transform: translateY(8px); }
+  to { transform: translateY(0); }
+}
+@keyframes glock-hero-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.glock-hero-title { animation: glock-hero-title-in 0.45s var(--ease-glock) both; }
+.glock-hero-rise { animation: glock-hero-rise 0.5s var(--ease-glock) both; }
+/* Cada pieza entra detras de la anterior. Los delays viven en el markup, donde
+      se leen junto al elemento que ordenan; aca solo esta la escala. El `both`
+      importa: sin el, durante el delay el elemento ya se veria en su estado
+      final y el escalonado no se veria. */
+[data-hero-step='1'] { animation-delay: 0ms; }
+[data-hero-step='2'] { animation-delay: 80ms; }
+[data-hero-step='3'] { animation-delay: 160ms; }
+[data-hero-step='4'] { animation-delay: 240ms; }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   /* 3. Sin esto el wipe queda a medio camino para siempre. */
   .js-reveal [data-reveal] { clip-path: none !important; }
+  /* 4. Seguro del estado final de los items. motion.ts no mira
+        prefers-reduced-motion: sigue observando todo [data-reveal] y agregando
+        `.is-in`, y con la transition de arriba muerta el item llega ya a su
+        estado final. O sea: hoy se ven. Lo que cambia es de quien depende que
+        se vean — con esto lo garantiza el CSS y no la llegada del modulo. Si un
+        item quedara sin observar, el `!important` le gana a la regla que declara
+        su estado inicial y el texto sigue ahi para quien pidio menos movimiento. */
+  .js-reveal [data-reveal="item"] { opacity: 1 !important; transform: none !important; }
 }
