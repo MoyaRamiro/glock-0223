@@ -28,6 +28,23 @@ const markup = html
 // mensajes que corren sobre el build, donde no hay nombre de componente que citar.
 const etiquetar = (t) => (t.length > 110 ? `${t.slice(0, 60)}...${t.slice(-46)}` : t);
 
+// Un atributo que solo *empieza* por `data-reveal` no es un reveal. El
+// vocabulario son los dos roles y el scope —`data-reveal="lead"`,
+// `data-reveal="item"`, `data-reveal-scope`— y nada mas, asi que un
+// `data-reveal-group` que alguien agregue mañana no puede disparar un guard que
+// culpa a un item. La frontera va en el nombre del atributo: `data-reveal` sin
+// guion ni letra pegada ni atras ni adelante, lo que deja pasar el `=` del rol y
+// el cierre del tag, y descarta todo lo que hale de `data-reveal-`.
+//
+// El `data-reveal` pelado SI cuenta como reveal, y es deliberado: es lo que
+// escribe quien se olvida del rol, o sea el estado que este guard existe para
+// cazar. Es el mismo defecto latente que ya habia corregido el guard de pelados
+// del build con `(?![-\w=])`, pero en la polaridad contraria —alla solo interesan
+// los sin valor, asi que el `=` los excluye—. Los dos tienen que mirar el nombre
+// completo del atributo y no un prefijo; por eso viven en un helper y no
+// repetidos.
+const esRevelo = (tag) => /(?<![\w-])data-reveal(?![\w-])/.test(tag);
+
 test('el build existe', () => {
   assert.ok(existsSync(join(dist, 'index.html')), 'falta dist/index.html');
 });
@@ -1040,8 +1057,17 @@ test('los wrappers que agrupan items no son items', opciones, () => {
   // Un reveal dentro de otro reveal compone dos transforms: el hijo se mueve
   // dos veces y la coreografia se ve rota. Estos wrappers existen para agrupar
   // items, asi que si se convierten en item, todo lo que contienen anima doble.
-  // Cada fila trae su motivo porque el de Hero es distinto: sus hijos todavia no
-  // son items (recien en la Task 4), asi que no vale decirle que ya lo son.
+  // Cada fila trae su motivo porque no todos los wrappers estan en la misma
+  // situacion, y el motivo se imprime en el mensaje de fallo: tiene que decir por
+  // que ese wrapper no puede ser item, no en que tarea quedo escrito.
+  //
+  // `Ediciones` y `SerParte` envuelven contenido que ya se revela solo, item por
+  // item. El hero no: esta arriba del fold y anima en la carga con su propio
+  // vocabulario —`glock-hero-rise` y `data-hero-step`, que no son reveals—, asi
+  // que sus hijos no son items y no hay ningun item que composition. Si alguien
+  // le pone `data-reveal` al wrapper, este test tiene que caer: el contenido ya
+  // esta en pantalla al cargar, y un reveal de scroll lo esconderia para
+  // volverlo a mostrar. El rojo de ahi es la senal, no ruido.
   //
   // El patron ancla el nombre del tag (`<div ...`) y no solo la clase. Con
   // `<[^>]*class="mt-4"[^>]*>` el match cae en el primer tag que contiene ESE
@@ -1064,9 +1090,9 @@ test('los wrappers que agrupan items no son items', opciones, () => {
   // atributo o precedida por un espacio, y seguida de un espacio o de la comilla
   // de cierre. Asi un `md:mt-4` de Tailwind no cuenta como el `mt-4` pelado.
   const wrappers = [
-    ['Ediciones', 'div', 'mt-4', 'sus hijos ya son items'],
-    ['SerParte', 'div', 'mt-8', 'sus hijos ya son items'],
-    ['Hero', 'div', 'mt-10', 'agrupa las columnas que revelan en la Task 4'],
+    ['Ediciones', 'div', 'mt-4', 'dentro va un `EdicionCard` por edicion y cada uno se revela solo'],
+    ['SerParte', 'div', 'mt-8', 'dentro van las filas mapeadas, cada una con su propio `data-reveal="item"`'],
+    ['Hero', 'div', 'mt-10', 'el hero esta arriba del fold y anima en la carga con `glock-hero-rise` / `data-hero-step`; un reveal de scroll lo esconderia y lo volveria a mostrar'],
   ];
   for (const [nombre, tag, clase, motivo] of wrappers) {
     const src = leer(`src/components/${nombre}.astro`);
@@ -1077,7 +1103,7 @@ test('los wrappers que agrupan items no son items', opciones, () => {
       `${nombre}.astro no tiene ningun <${tag}> con la clase "${clase}": revisa que el plan siga vigente, o que el wrapper haya cambiado de clase`,
     );
     assert.ok(
-      !encontrado[0].includes('data-reveal'),
+      !esRevelo(encontrado[0]),
       `${nombre}.astro: el wrapper <${etiquetar(encontrado[0])}> no debe ser item porque ${motivo}`,
     );
   }
