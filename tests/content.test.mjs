@@ -43,7 +43,8 @@ const etiquetar = (t) => (t.length > 110 ? `${t.slice(0, 60)}...${t.slice(-46)}`
 // los sin valor, asi que el `=` los excluye—. Los dos tienen que mirar el nombre
 // completo del atributo y no un prefijo; por eso viven en un helper y no
 // repetidos.
-const esRevelo = (tag) => /(?<![\w-])data-reveal(?![\w-])/.test(tag);
+const RE_REVELO = /(?<![\w-])data-reveal(?![\w-])/;
+const esRevelo = (tag) => RE_REVELO.test(tag);
 
 test('el build existe', () => {
   assert.ok(existsSync(join(dist, 'index.html')), 'falta dist/index.html');
@@ -702,8 +703,11 @@ test('el elemento LCP no se anima', opciones, () => {
   // romper el presupuesto de 2500 ms. Los reveals arrancan despues.
   const h1 = /<h1[^>]*>/.exec(html);
   assert.ok(h1, 'no hay h1');
-  assert.ok(!h1[0].includes('data-reveal'), 'el h1 (LCP) tiene data-reveal');
-  assert.ok(html.indexOf('<h1') < html.indexOf('data-reveal'), 'el h1 deberia ir antes del primer reveal');
+  assert.ok(!esRevelo(h1[0]), 'el h1 (LCP) tiene data-reveal');
+  // El limite del nombre, no un prefijo: un atributo futuro como
+  // data-reveal-algo no es un reveal, y haria fallar este assert por nada.
+  const primerRevelo = html.search(RE_REVELO);
+  assert.ok(html.indexOf('<h1') < primerRevelo, 'el h1 deberia ir antes del primer reveal');
 });
 
 test('el reveal tiene red de seguridad si el modulo no carga', opciones, () => {
