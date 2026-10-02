@@ -46,6 +46,76 @@ const etiquetar = (t) => (t.length > 110 ? `${t.slice(0, 60)}...${t.slice(-46)}`
 const RE_REVELO = /(?<![\w-])data-reveal(?![\w-])/;
 const esRevelo = (tag) => RE_REVELO.test(tag);
 
+// El cuerpo de la primera regla cuyo selector ES `selector`, con el indice donde
+// arranca el selector, o `null` si no existe. El `indice` esta porque hay una
+// comparacion que no se puede hacer con el cuerpo: el orden de dos reglas.
+//
+// El locator tiene que comparar el selector entero y no un prefijo. Con
+// `indexOf('.glock-hero-title')` un `.glock-hero-title span` de arriba roba el
+// recorte y todos los asserts del h1 pasan mirando un bloque que no es el suyo;
+// con `.glock-hero-rise` pasa lo mismo con un `-alt`. Es el defecto que
+// `RE_REVELO` ya corrigio en el otro extremo de la cadena —un prefijo tomado por
+// el nombre entero— asi que aca la frontera va en el final del selector: se
+// separan las partes de la lista y se comparan completas. El comentario se saca
+// antes de comparar porque sino una regla con el selector partido por un
+// comentario no matchearia nunca y el assert pasaria sin mirar nada.
+//
+// El `lastIndexOf` arranca en `llave - 1` y no en `llave` a proposito: el indice
+// de la llave es inclusivo, asi que buscandolo desde el mismo `llave` devolveria
+// la propia llave, el selector saldria vacio y ninguna regla matchearia nunca.
+function reglaDe(css, selector) {
+  const limpio = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').trim();
+  for (let desde = 0; ; ) {
+    const llave = css.indexOf('{', desde);
+    if (llave < 0) return null;
+    const anterior = Math.max(css.lastIndexOf('}', llave), css.lastIndexOf('{', llave - 1));
+    const partes = limpio(css.slice(anterior + 1, llave)).split(',').map(limpio);
+    if (partes.includes(selector)) return { desde: anterior + 1, llave, cuerpo: cuerpoDe(css, llave) };
+    desde = llave + 1;
+  }
+}
+
+// Un solo recorrido de tags en todo el archivo, porque la parte dificil —los
+// void que no se apilan, los de cierre implicito que se cierran antes de apilar
+// y el corte por nombre que deja sana una pila desincronizada en vez de inventar
+// un anidamiento— no puede tener dos versiones: la mas debil siempre es la que
+// nadie revisa. El `<br />` del h1 y el `<span>` del `.map` del marquee entran por
+// la regla de cierre explicito, asi que ninguno de los dos desincroniza.
+//
+// El regex se clona en cada llamada porque lleva `g` y `lastIndex` es estado: dos
+// recorridos que compartieran la instancia empezarían el segundo en donde termino
+// el primero y perderian tags en silencio.
+const SIN_CIERRE = new Set([
+  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
+  'link', 'meta', 'param', 'source', 'track', 'wbr',
+]);
+const CIERRE_IMPLICITO = new Set([
+  'dd', 'dt', 'li', 'option', 'p', 'rp', 'rt', 'td', 'th', 'thead', 'tbody', 'tfoot', 'tr',
+]);
+const RE_TAG = /<(\/?)([a-zA-Z][\w:-]*)((?:"[^"]*"|'[^']*'|[^>"'])*?)(\/?)>/g;
+
+function recorrerTags(src, alAbrir) {
+  const re = new RegExp(RE_TAG.source, 'g');
+  const pila = [];
+  let m;
+  while ((m = re.exec(src))) {
+    const nombre = m[2].toLowerCase();
+    if (m[1] === '/') {
+      const i = pila.findLastIndex((e) => e.nombre === nombre);
+      if (i >= 0) pila.length = i;
+      continue;
+    }
+    if (m[4] === '/' || SIN_CIERRE.has(nombre)) continue;
+    if (CIERRE_IMPLICITO.has(nombre)) {
+      const i = pila.findLastIndex((e) => e.nombre === nombre);
+      if (i >= 0) pila.length = i;
+    }
+    alAbrir({ tag: m[0], nombre, atributos: m[3] || '' }, pila);
+    pila.push({ nombre, tag: m[0], atributos: m[3] || '' });
+  }
+  return pila;
+}
+
 test('el build existe', () => {
   assert.ok(existsSync(join(dist, 'index.html')), 'falta dist/index.html');
 });
@@ -701,13 +771,19 @@ test('el motion solo toca propiedades que no mueven la pagina', opciones, () => 
 test('el elemento LCP no se anima', opciones, () => {
   // El h1 es el LCP. Animar su clip-path mueve el timestamp de LCP y puede
   // romper el presupuesto de 2500 ms. Los reveals arrancan despues.
-  const h1 = /<h1[^>]*>/.exec(html);
+  //
+  // Se lee `markup` y no `html` porque este assert es de orden sobre contenido
+  // visible: `html` trae el `<head>` con el modulo inline, y un solo `[data-reveal]`
+  // mencionado ahi haria que el `indexOf` encontrara "el primer reveal" en el
+  // script y el fallo le echaria la culpa al h1, que esta perfecto. `markup` ya
+  // viene sin scripts, estilos ni comentarios (ver el helper del encabezado).
+  const h1 = /<h1[^>]*>/.exec(markup);
   assert.ok(h1, 'no hay h1');
   assert.ok(!esRevelo(h1[0]), 'el h1 (LCP) tiene data-reveal');
   // El limite del nombre, no un prefijo: un atributo futuro como
   // data-reveal-algo no es un reveal, y haria fallar este assert por nada.
-  const primerRevelo = html.search(RE_REVELO);
-  assert.ok(html.indexOf('<h1') < primerRevelo, 'el h1 deberia ir antes del primer reveal');
+  const primerRevelo = markup.search(RE_REVELO);
+  assert.ok(markup.indexOf('<h1') < primerRevelo, 'el h1 deberia ir antes del primer reveal');
 });
 
 test('el reveal tiene red de seguridad si el modulo no carga', opciones, () => {
@@ -731,7 +807,7 @@ test('lead e item arrancan ocultos solo con el gate .js-reveal', opciones, () =>
   // la pagina en blanco para siempre.
   const css = leer('src/styles/global.css');
   const ocultos = [...css.matchAll(/([^{}]*\[data-reveal[^\]]*\][^{}]*)\{([^}]*)\}/g)]
-    .filter(([, , cuerpo]) => /opacity:\s*0|clip-path:\s*inset\(0 100%/.test(cuerpo))
+    .filter(([, , cuerpo]) => /opacity:\s*0(?![.\d])|clip-path:\s*inset\(0 100%/.test(cuerpo))
     .map(([, sel]) => sel.trim());
   assert.ok(ocultos.length >= 2, `se esperaban al menos 2 estados iniciales, hay ${ocultos.length}`);
   for (const sel of ocultos) {
@@ -746,7 +822,7 @@ test('el rise de los items usa solo propiedades que no mueven la pagina', opcion
   // Del selector hasta el proximo @media: cubre el rise, el hover de
   // misalign, los botones y el flyer. Todos tienen que seguir limpios.
   const bloque = css.slice(i, css.indexOf('@media', i));
-  assert.match(bloque, /opacity:\s*0/, 'el item no arranca con opacity 0');
+  assert.match(bloque, /opacity:\s*0(?![.\d])/, 'el item no arranca con opacity 0');
   assert.match(bloque, /transform:\s*translateY/, 'el item no arranca con translateY');
   assert.match(bloque, /--reveal-delay/, 'el item no lee el retardo que escribe motion.ts');
   for (const prop of ['height', 'top', 'bottom', 'left', 'margin', 'padding', 'width']) {
@@ -1173,46 +1249,19 @@ test('ningun reveal anida otro reveal', opciones, () => {
   // expresa en texto: el `.map` de EdicionCard y el de SerParte deciden cuantos
   // reveals hay y donde caen, y solo el DOM ya renderizado lo dice. `markup` ya
   // viene sin scripts, estilos ni comentarios (ver el helper del encabezado).
-  // Los void no se apilan: no traen tag de cierre, asi que empujarlos
-  // desincroniza la pila para todo lo que venga despues y el guard empieza a
-  // inventar anidamientos. Los de cierre implicito se cierran antes de apilar:
-  // `<li>` o `<p>` pueden no traer el suyo y dejarian al anterior colgado.
-  const SIN_CIERRE = new Set([
-    'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
-    'link', 'meta', 'param', 'source', 'track', 'wbr',
-  ]);
-  const CIERRE_IMPLICITO = new Set([
-    'dd', 'dt', 'li', 'option', 'p', 'rp', 'rt', 'td', 'th', 'thead', 'tbody', 'tfoot', 'tr',
-  ]);
-  const pila = [];
+  // La pila la maneja `recorrerTags`, el unico recorrido de tags del archivo.
+  //
+  // El scope no es un reveal: el observer no lo observa, solo le saca el
+  // indice. Por eso la marca exige el rol y `data-reveal-scope` no matchea: todo
+  // item es hijo de un scope y eso es lo correcto, no un anidamiento.
   const anidados = [];
   let revelaciones = 0;
-  const re = /<(\/?)([a-zA-Z][\w:-]*)((?:"[^"]*"|'[^']*'|[^>"'])*?)(\/?)>/g;
-  let m;
-  while ((m = re.exec(markup))) {
-    const nombre = m[2].toLowerCase();
-    if (m[1] === '/') {
-      // Se corta hasta el ultimo abierto con ese nombre. Si la pila se
-      // desincronizo un poco, el corte la deja sana en vez de tirar el test por
-      // algo que no es un anidamiento: el error tiene que ser del markup real.
-      const i = pila.findLastIndex((e) => e.nombre === nombre);
-      if (i >= 0) pila.length = i;
-      continue;
-    }
-    if (m[4] === '/' || SIN_CIERRE.has(nombre)) continue;
-    if (CIERRE_IMPLICITO.has(nombre)) {
-      const i = pila.findLastIndex((e) => e.nombre === nombre);
-      if (i >= 0) pila.length = i;
-    }
-    // El scope no es un reveal: el observer no lo observa, solo le saca el
-    // indice. Por eso el patron exige el rol y `data-reveal-scope` no matchea:
-    // todo item es hijo de un scope y eso es lo correcto, no un anidamiento.
-    const rev = /\sdata-reveal="(?:lead|item)"/.test(m[3] || '');
-    if (rev) revelaciones += 1;
-    const ancestro = pila.findLast((e) => e.rev);
-    if (rev && ancestro) anidados.push(`${etiquetar(m[0])} dentro de ${etiquetar(ancestro.tag)}`);
-    pila.push({ nombre, rev, tag: m[0] });
-  }
+  recorrerTags(markup, (e, pila) => {
+    if (!/\sdata-reveal="(?:lead|item)"/.test(e.atributos)) return;
+    revelaciones += 1;
+    const ancestro = pila.findLast((a) => /\sdata-reveal="(?:lead|item)"/.test(a.atributos));
+    if (ancestro) anidados.push(`${etiquetar(e.tag)} dentro de ${etiquetar(ancestro.tag)}`);
+  });
   // Anti-vacuitud: el recorrido tiene que haber visto tantos reveals como el
   // markup declara. Si el regex de tags dejara de matchear algo, la pila queda
   // vacia y el deepEqual de abajo pasa sin haber mirado nada: un guard que
@@ -1236,22 +1285,37 @@ test('la coreografia del hero no esconde el h1', () => {
   // una animacion vive adentro del keyframe, asi que el keyframe es lo que hay
   // que mirar. Un `opacity: 0` agregado ahi no toca la clase, no rompe ninguna
   // otra guarda y aun asi corre el LCP.
+  //
+  // Este test no lleva `opciones` a proposito: lee `src/` y no el build, asi que
+  // `opciones` lo saltaria sin motivo en un checkout sin `dist/`. Los tres tests
+  // del hero que le siguen hacen lo mismo.
   const css = leer('src/styles/global.css');
-  // El `indexOf` lleva el punto adelante a proposito: el nombre del keyframe
-  // contiene `glock-hero-title` pero no `.glock-hero-title`, asi que el match cae
-  // en la regla de clase y no en el keyframe.
-  const i = css.indexOf('.glock-hero-title');
-  assert.ok(i > 0, 'no existe la entrada del h1');
-  const regla = cuerpoDe(css, i);
-  assert.ok(!/opacity:\s*0/.test(regla), 'el h1 arranca en opacity 0: rompe el LCP');
-  assert.ok(!/clip-path/.test(regla), 'el h1 arranca con clip: rompe el LCP');
+
+  // El locator compara el selector entero, asi que un `.glock-hero-title span`
+  // agregado arriba no le roba el recorte a la regla de clase: sin eso, el
+  // assert leeria ese bloque y daria verde mirando el elemento equivocado.
+  const titulo = reglaDe(css, '.glock-hero-title');
+  assert.ok(titulo, 'no existe la entrada del h1');
+  assert.ok(
+    !/opacity:\s*0(?![.\d])/.test(titulo.cuerpo),
+    'el h1 arranca en opacity 0 en la regla de clase: rompe el LCP',
+  );
+  // El clip se mira en el keyframe, que es donde puede escribirse de verdad; aca
+  // queda por si alguien pone el estado inicial en la clase, que es el error
+  // clasico de corregir la regla equivocada. No es la guarda que importa: la de
+  // abajo. Esta no puede quemarse sola —nadie escribe un clip en una regla que
+  // solo declara `animation:`— y por eso no se lee como la que carga el peso.
+  assert.ok(
+    !/clip-path/.test(titulo.cuerpo),
+    'la regla de clase del h1 declara clip-path: el estado inicial tiene que estar en el keyframe, no aca',
+  );
   // El `transform` no se exige en la clase: alla no va. La clase solo declara
   // que corre el keyframe, y el keyframe es quien decide de que propiedad se
   // mueve el h1. Exigirlo en la clase daria verde a un h1 que no se mueve. Lo que
   // si tiene que quedar enganchado es el nombre, para que cambiar uno sin cambiar
   // el otro no deje la regla apuntando a un keyframe que no existe.
   assert.match(
-    regla,
+    titulo.cuerpo,
     /animation:\s*glock-hero-title-in\b/,
     'el h1 no corre el keyframe glock-hero-title-in: la regla queda sin efecto y el h1 no hace su entrada',
   );
@@ -1259,21 +1323,31 @@ test('la coreografia del hero no esconde el h1', () => {
   const k = css.indexOf('@keyframes glock-hero-title-in');
   assert.ok(k > 0, 'no existe el keyframe de entrada del h1');
   const cuerpo = cuerpoDe(css, k);
+  // El `transform` se exige con los dos puntos: `/transform/` lo satisfacia un
+  // `transform-origin` que no anima nada, y el assert pasaria con el h1 quieto.
   assert.match(
     cuerpo,
-    /transform/,
+    /transform\s*:/,
     'glock-hero-title-in no anima transform: el h1 tiene que entrar moviendose',
   );
   assert.ok(
-    !/opacity:\s*0/.test(cuerpo),
+    !/opacity:\s*0(?![.\d])/.test(cuerpo),
     'glock-hero-title-in arranca en opacity 0: el navegador espera a pintar el h1 y el timestamp de LCP se corre',
   );
+  // El clip va aca y no en la regla de clase. El keyframe es la unica parte del
+  // CSS donde el estado inicial se escribe de verdad, y la iteracion siguiente
+  // del plan abre el clip: escrito en el `from`, el h1 arranca recortado, el
+  // navegador no lo cuenta como pintado hasta que el clip se abre y el LCP se
+  // corre. La regla de clase no puede tener ese problema, porque no declara
+  // estado inicial. Por eso el assert de arriba vive, y por eso este pesa.
+  assert.ok(
+    !/clip-path/.test(cuerpo),
+    'glock-hero-title-in arranca con el clip cerrado: el h1 no se pinta hasta que el clip se abre, el navegador espera y el timestamp de LCP se corre',
+  );
 
-  // Los de apoyo si pueden arrancar en opacity 0: no son el elemento LCP, y sin
-  // el no se veria la coreografia.
-  const j = css.indexOf('.glock-hero-rise');
-  assert.ok(j > 0, 'no existe la entrada de los elementos de apoyo');
-  assert.match(cuerpoDe(css, j), /animation/, 'los elementos de apoyo no animan');
+  const rise = reglaDe(css, '.glock-hero-rise');
+  assert.ok(rise, 'no existe la entrada de los elementos de apoyo');
+  assert.match(rise.cuerpo, /animation/, 'los elementos de apoyo no animan');
 
   // El fill mode `both` no es cosmetico: los pasos 2, 3 y 4 del rise arrancan
   // 80/160/240 ms tarde, y sin fill el elemento se ve en su estado natural
@@ -1286,7 +1360,7 @@ test('la coreografia del hero no esconde el h1', () => {
   // no cambia nada hoy y el costo de perderlo es que el dia que su entrada levou
   // un retardo nadie lo note. El rise, en cambio, esta roto ya.
   //
-  // Se lee el cuerpo de cada regla con `cuerpoDe`, asi que ni un comentario ni la
+  // Se lee el cuerpo de cada regla con `reglaDe`, asi que ni un comentario ni la
   // regla vecina pueden dar el verde: el marquee de `global.css:112-117` tampoco
   // lleva `both` —no debe— pero vive en otra regla y queda fuera del recorte. El
   // `[^;}]*` evita que el `both` se tome de otra declaracion de la misma regla, y
@@ -1306,21 +1380,40 @@ test('la coreografia del hero no esconde el h1', () => {
       'los pasos 2, 3 y 4 se ven en su estado final durante los 80/160/240 ms de retardo y despues entran en from con un flash a opacity 0',
     ],
   ]) {
-    const cuerpo = cuerpoDe(css, css.indexOf(selector));
+    const cuerpo = reglaDe(css, selector);
+    assert.ok(cuerpo, `${selector} no tiene regla de clase`);
     assert.match(
-      cuerpo,
+      cuerpo.cuerpo,
       new RegExp(`animation\\s*:[^;}]*\\b${animacion}\\b[^;}]*\\bboth\\b`),
       `${selector} no declara "${animacion}" con el fill mode "both": sin el, ${consecuencia}`,
+    );
+
+    // La duracion tampoco es cosmetica. `animation: glock-hero-title-in 0s
+    // var(--ease-glock) both` pasa los dos asserts de arriba —nombre correcto,
+    // fill correcto— y deja el h1 en su estado final desde el primer frame: la
+    // entrada desaparece sin que ningun selector ni el nombre del keyframe se
+    // muevan. En el shorthand de `animation` el primer `<time>` es la duracion
+    // por especificacion; el segundo seria el retardo. Se mide el primero.
+    const declaracion = /animation\s*:([^;}]*)/.exec(cuerpo.cuerpo)[1];
+    const tiempos = [...declaracion.matchAll(/(?<![\w.-])(\d*\.?\d+)(m?s)\b/gi)].map(
+      ([, n, u]) => Number(n) * (u.toLowerCase() === 'ms' ? 1 : 1000),
+    );
+    assert.ok(
+      tiempos.length > 0,
+      `${selector} no declara duracion en su animation: sin ella la entrada no corre`,
+    );
+    assert.ok(
+      tiempos[0] > 0,
+      `${selector} declara duracion 0 en su animation: el elemento arranca en su estado final y la entrada no se ve`,
     );
   }
 });
 
 test('los pasos del hero no se pisan entre si', () => {
   // El CTA (linea 14) vive dentro del grid (linea 11). Si el grid tambien
-  // animara, el CTA compondria dos transform y entraria corrido. El caso se
-  // detecta por conteo y no por recorrido del arbol: los cuatro rises legitimos
-  // son hojas y ninguno envuelve a otro, asi que un rise de mas es un rise
-  // anidado.
+  // animara, el CTA compondria dos transform y entraria corrido. El conteo de
+  // lineas con rise es el candado de densidad —no queremos cinco—; que ademas
+  // sean hojas lo dice el recorrido de mas abajo, que es otra propiedad.
   const src = leer('src/components/Hero.astro');
   const lineas = src.split(/\r?\n/);
   const atributos = [...src.matchAll(/data-hero-step="(\d)"/g)];
@@ -1362,6 +1455,99 @@ test('los pasos del hero no se pisan entre si', () => {
     !titulo[0].includes('data-hero-step'),
     'el h1 lleva data-hero-step: su animacion arranca en 0 y el unico retardo posible seria el de la propia animacion',
   );
+
+  // El conteo no distingue un rise agregado de un rise movido: los tres casos de
+  // abajo dejan 4 lineas con rise y 4 con paso, asi que el bloque de arriba los
+  // deja verdes. Por eso la ascendencia se mide con el recorrido de `recorrerTags`
+  // —el mismo que usa el guard de anidamiento sobre el build, con los mismos
+  // void y cierres implicitos, para que el `<br />` del h1 y el `<span>` del
+  // `.map` del marquee no desincronicen la pila—:
+  //
+  //   - subir el rise del CTA (14) al `<div class="md:col-span-7">` (12), que es
+  //     su ancestro: dos transforms compuestos, el hazard que la Correccion 5
+  //     nombraba. Ojo que el `<p>` de (13) es hermano del CTA, no ancestro: poner
+  //     el rise ahi no compone nada, solo baja el conteo de rises a tres;
+  //   - subirlo al `<div>` de la grilla (7), que es el padre directo del h1: no
+  //     tiene `data-hero-step`, asi que delay 0, y su `from { opacity: 0 }` mete
+  //     al elemento LCP dentro de un subarbol invisible en el primer frame;
+  //   - subirlo al `<section id="top">` (5): todo lo animado queda debajo.
+  const RE_RISE = /(?<![\w-])glock-hero-rise(?![\w-])/;
+  const RE_TITLE = /(?<![\w-])glock-hero-title(?![\w-])/;
+  const ascendidos = [];
+  let risesVistos = 0;
+  let titulosVistos = 0;
+  recorrerTags(
+    src,
+    (e, pila) => {
+      if (RE_RISE.test(e.atributos)) risesVistos += 1;
+      if (RE_TITLE.test(e.atributos)) titulosVistos += 1;
+      if (!RE_RISE.test(e.atributos)) return;
+      const ancestro = pila.findLast((a) => RE_RISE.test(a.atributos) || RE_TITLE.test(a.atributos));
+      if (ancestro) ascendidos.push(`${etiquetar(e.tag)} dentro de ${etiquetar(ancestro.tag)}`);
+    },
+  );
+  // Anti-vacuitud: el recorrido tiene que haber visto lo mismo que el conteo por
+  // linea. Si el regex de tags dejara de matchear algo, la pila queda vacia y el
+  // deepEqual de abajo pasa sin haber mirado nada.
+  assert.equal(risesVistos, rise.length, `el recorrido vio ${risesVistos} rises y el conteo por linea ve ${rise.length}`);
+  assert.equal(titulosVistos, 1, `el recorrido vio ${titulosVistos} titulos y deberia ver 1`);
+  assert.deepEqual(
+    ascendidos,
+    [],
+    `un elemento animado envuelve a otro que tambien anima, y componian dos transforms:\n  ${ascendidos.join('\n  ')}`,
+  );
+
+  // Los pasos viven en el markup y los retardos en el CSS. Renumerar uno solo
+  // deja al elemento apuntando a un `[data-hero-step='N']` que no existe: no
+  // matchea ninguna regla, no recibe retardo y entra con el primero, asi que la
+  // ultima pieza aterriza con la primera y el escalonado deja de leerse.
+  const css = leer('src/styles/global.css');
+  const retardos = [...css.matchAll(/\[data-hero-step='(\d)'\]\s*\{\s*animation-delay:\s*([\d.]+m?s)\s*;/g)]
+    .map(([, n, d]) => ({ paso: Number(n), texto: d, ms: Number.parseFloat(d) * (d.endsWith('ms') ? 1 : 1000) }))
+    .sort((a, b) => a.paso - b.paso);
+  assert.deepEqual(
+    retardos.map((r) => r.paso),
+    [...new Set(pasos)].sort((a, b) => a - b),
+    `el CSS retrasa los pasos ${retardos.map((r) => r.paso).join(', ') || 'ninguno'} y el markup declara ${pasos.join(', ')}: el que no matchea cae en el retardo por defecto y entra con el primero`,
+  );
+  // Cada pieza entra detras de la anterior, asi que los retardos son distintos y
+  // crecen con el numero. El paso 1 arranca en 0 a proposito —entra junto al h1,
+  // que tampoco espera—, asi que "ninguno en cero" no puede ser para todos; lo
+  // que no puede ser es que el ultimo quede en cero, que es justo lo que pasa
+  // cuando el numero se renumera y el markup queda apuntando al aire.
+  assert.equal(
+    new Set(retardos.map((r) => r.ms)).size,
+    retardos.length,
+    `dos pasos comparten retardo: ${retardos.map((r) => `${r.paso}=${r.texto}`).join(', ')}`,
+  );
+  for (let i = 1; i < retardos.length; i++) {
+    assert.ok(
+      retardos[i].ms > retardos[i - 1].ms,
+      `el retardo no crece con el paso: ${retardos[i - 1].paso}=${retardos[i - 1].texto} y ${retardos[i].paso}=${retardos[i].texto}`,
+    );
+  }
+  assert.ok(
+    retardos.at(-1).ms > 0,
+    `el ultimo paso arranca en 0: el escalonado no se ve y la ultima pieza entra con la primera`,
+  );
+
+  // El orden de estas reglas es load-bearing, y es lo unico del stylesheet donde
+  // lo es. `.glock-hero-rise` y `[data-hero-step='N']` tienen la misma
+  // especificidad —una clase y un selector de atributo, (0,1,0)— asi que gana la
+  // que aparece despues, y el shorthand `animation` de la clase reinicia
+  // `animation-delay` a 0s como parte de su reset. Con las reglas de retardo
+  // arriba, el rise las pisa, los cuatro pasos entran juntos, no hay error de
+  // sintaxis y ninguna otra guarda del archivo lo nota.
+  const riseCss = reglaDe(css, '.glock-hero-rise');
+  assert.ok(riseCss, 'no existe la entrada de los elementos de apoyo');
+  for (const r of retardos) {
+    const regla = reglaDe(css, `[data-hero-step='${r.paso}']`);
+    assert.ok(regla, `no existe la regla de retardo del paso ${r.paso}`);
+    assert.ok(
+      regla.llave > riseCss.llave,
+      `[data-hero-step='${r.paso}'] esta antes de .glock-hero-rise y la pierde: el shorthand animation de la clase tiene la misma especificidad y reinicia el retardo a 0s, asi que los cuatro pasos entran juntos`,
+    );
+  }
 });
 
 test('la coreografia del hero respeta reduced-motion', () => {
