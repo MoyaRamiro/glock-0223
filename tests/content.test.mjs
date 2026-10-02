@@ -12,6 +12,22 @@ const html = hayBuild ? readFileSync(join(dist, 'index.html'), 'utf8') : '';
 
 const opciones = { skip: hayBuild ? false : 'requiere npm run build' };
 
+// El modulo va inline dentro del index.html y el bundle lleva sus propios
+// `data-reveal` (el querySelectorAll y el closest del scope). Sobre el HTML crudo
+// el conteo de scopes sale inflado en uno y `[data-reveal]` / `data-reveal-scope`
+// matchean igual que un atributo sin valor. Scripts, estilos y comentarios no son
+// atributos, asi que salen antes de medir: un `<` dentro de un `<style>` o un
+// comentario con `data-reveal="item"` desincronizaria el recorrido del anidamiento
+// o inflaria el conteo de declarados.
+const markup = html
+  .replace(/<(script|style)[\s\S]*?<\/\1>/g, '')
+  .replace(/<!--[\s\S]*?-->/g, '');
+
+// Recorta un tag largo por el medio, no por el final: el rol (`data-reveal="lead"`)
+// vive al cierre del atributo y recortarlo por el final lo escondia. Se usa en los
+// mensajes que corren sobre el build, donde no hay nombre de componente que citar.
+const etiquetar = (t) => (t.length > 110 ? `${t.slice(0, 60)}...${t.slice(-46)}` : t);
+
 test('el build existe', () => {
   assert.ok(existsSync(join(dist, 'index.html')), 'falta dist/index.html');
 });
@@ -955,37 +971,90 @@ test('ningun reveal queda fuera de un scope', opciones, () => {
   assert.deepEqual([...parciales], ['EdicionCard'], 'cambio el set de parciales: revisa quien quedo huerfano');
 });
 
+test('cada componente mantiene su densidad de reveals', opciones, () => {
+  // La densidad es el entregable de esta task y hasta ahora solo tenia cobertura
+  // aditiva: un reveal de mas lo agarra el guard de anidamiento, pero uno de
+  // menos no lo veia nadie. Sacar el `<article>` item de SongWars, o cambiar el
+  // `<ul>` entero de Artistas por reveals por `<li>`, dejaba la suite verde. La
+  // tabla convierte cada fila en una decision explicita: componente -> [scope,
+  // lead, item].
+  //
+  // Se mide sobre el fuente y no sobre el build: los conteos son por archivo, y
+  // el `.map` de EdicionCard rinde cuatro veces en el build y una en fuente.
+  //
+  // EdicionCard tiene 0 scope y 1 item: es el parcial sancionado (su article se
+  // renderiza dentro del scope de Ediciones) y la tabla lo hace visible en vez de
+  // taparlo con un `continue`. Faq tiene 0 items a proposito: sus items son del
+  // plan del FAQ. La tarea que los agregue tiene que venir a subir este numero, y
+  // esa friccion es el punto: un cambio de densidad se firma, no se cuela.
+  const esperado = {
+    Manifiesto: [1, 1, 1],
+    Ediciones: [1, 1, 1],
+    EdicionCard: [0, 0, 1],
+    Artistas: [1, 1, 2],
+    Sessions: [1, 1, 2],
+    SongWars: [1, 1, 2],
+    Sponsors: [1, 1, 1],
+    Proxima: [1, 1, 2],
+    SerParte: [1, 1, 2],
+    Contacto: [1, 1, 1],
+    Faq: [1, 1, 0],
+  };
+  const desvios = [];
+  for (const [nombre, [scope, lead, item]] of Object.entries(esperado)) {
+    const src = leer(`src/components/${nombre}.astro`);
+    const contar = (re) => (src.match(re) || []).length;
+    const real = [
+      contar(/data-reveal-scope/g),
+      contar(/data-reveal="lead"/g),
+      contar(/data-reveal="item"/g),
+    ];
+    if (real[0] !== scope || real[1] !== lead || real[2] !== item) {
+      desvios.push(
+        `${nombre}.astro: esperado scope=${scope} lead=${lead} item=${item}, real scope=${real[0]} lead=${real[1]} item=${real[2]}`,
+      );
+    }
+  }
+  assert.deepEqual(desvios, [], `cambio la densidad de reveals:\n  ${desvios.join('\n  ')}`);
+});
+
 test('los wrappers que agrupan items no son items', opciones, () => {
   // Un reveal dentro de otro reveal compone dos transforms: el hijo se mueve
   // dos veces y la coreografia se ve rota. Estos wrappers existen para agrupar
   // items, asi que si se convierten en item, todo lo que contienen anima doble.
-  // Se chequean por clase exacta: el nombre del wrapper es lo unico estable
-  // de cada componente, y exigir la comilla de cierre evita matchear al hermano.
+  // Cada fila trae su motivo porque el de Hero es distinto: sus hijos todavia no
+  // son items (recien en la Task 4), asi que no vale decirle que ya lo son.
+  //
+  // El patron ancla el nombre del tag (`<div ...`) y no solo la clase. Con
+  // `<[^>]*class="mt-4"[^>]*>` el match cae en el primer tag que contiene ESE
+  // string exacto: hoy da en el `<div>` solo porque el `<p>` de Ediciones:7 dice
+  // `class="mt-4 max-w-2xl"`, donde la comilla no cierra despues de mt-4. Si
+  // alguien colapsa ese `<p>` a `class="mt-4"`, el guard retargetea al `<p>`:
+  // hoy ese `<p>` lleva reveal, asi que falla un cambio legitimo culpando al `<p>`
+  // en vez del wrapper; y si no lo llevara, el retarget pasaria en silencio sin
+  // haber mirado el `<div>` real. Anclar el tag evita las dos cosas.
   const wrappers = [
-    ['Ediciones', 'class="mt-4"'],
-    ['SerParte', 'class="mt-8 border-b border-white/15"'],
-    ['Hero', 'class="mt-10 grid gap-8 md:grid-cols-12"'],
+    ['Ediciones', 'div', 'class="mt-4"', 'sus hijos ya son items'],
+    ['SerParte', 'div', 'class="mt-8 border-b border-white/15"', 'sus hijos ya son items'],
+    ['Hero', 'div', 'class="mt-10 grid gap-8 md:grid-cols-12"', 'agrupa las columnas que revelan en la Task 4'],
   ];
-  for (const [nombre, clase] of wrappers) {
+  for (const [nombre, tag, clase, motivo] of wrappers) {
     const src = leer(`src/components/${nombre}.astro`);
     const escapada = clase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const encontrado = new RegExp(`<[^>]*${escapada}[^>]*>`).exec(src);
-    assert.ok(encontrado, `${nombre}.astro no tiene el wrapper ${clase}: revisa que el plan siga vigente`);
+    const encontrado = new RegExp(`<${tag}[^>]*${escapada}[^>]*>`).exec(src);
+    assert.ok(encontrado, `${nombre}.astro no tiene el wrapper <${tag} ${clase}>: revisa que el plan siga vigente`);
     assert.ok(
       !encontrado[0].includes('data-reveal'),
-      `${nombre}.astro: el wrapper ${clase} no debe ser item, sus hijos ya lo son`,
+      `${nombre}.astro: el wrapper <${tag} ${clase}> no debe ser item porque ${motivo}`,
     );
   }
 });
 
 test('el build trae los reveals con jerarquia', opciones, () => {
-  // Se mide sobre el markup, no sobre el HTML crudo. El modulo va inline dentro
-  // del index.html y el bundle lleva sus propios `data-reveal`: el
-  // querySelectorAll y el closest del scope. Sobre el crudo el conteo de scopes
-  // sale inflado en uno y el assert de los pelados no tendria forma de pasar
-  // nunca, porque `[data-reveal]` y `data-reveal-scope` lo matchean igual que un
-  // atributo sin valor. Los scripts no son atributos, asi que salen.
-  const markup = html.replace(/<script[\s\S]*?<\/script>/g, '');
+  // `markup` ya viene sin scripts, estilos ni comentarios (ver el helper del
+  // encabezado). Los conteos son pisos con margen: 10 scopes y 10 leads reales
+  // contra 9, y 20 items en el build contra el piso de 15. Los pisos solos no ven
+  // una seccion que pierde su reveal, por eso esta la tabla por componente abajo.
   const scopes = (markup.match(/data-reveal-scope/g) || []).length;
   const leads = (markup.match(/data-reveal="lead"/g) || []).length;
   const items = (markup.match(/data-reveal="item"/g) || []).length;
@@ -995,10 +1064,38 @@ test('el build trae los reveals con jerarquia', opciones, () => {
   // `(?![-\w=])` y no el `(?!\s*=)` del plan: despues de `data-reveal` puede
   // venir un `=` (el rol) o un `-` (`data-reveal-scope`), y los dos son reveal
   // legitimo. Lo pelado es lo que no sigue de ninguno: `data-reveal>` o
-  // `data-reveal data-misalign`.
+  // `data-reveal data-misalign`. El mensaje cita el fragmento alrededor del match
+  // porque sobre un build de 20 KB un "quedo un pelado" obliga a grepear a mano.
+  const pelado = /data-reveal(?![-\w=])/.exec(markup);
   assert.ok(
-    !/data-reveal(?![-\w=])/.test(markup),
-    'quedo un data-reveal pelado: debe ser lead o item',
+    !pelado,
+    `quedo un data-reveal pelado (debe ser lead o item): ${pelado ? etiquetar(markup.slice(Math.max(0, pelado.index - 45), pelado.index + 55).replace(/\s+/g, ' ')) : ''}`,
+  );
+});
+
+test('el rol de cada reveal esta acotado a lead o item', opciones, () => {
+  // El assert de los pelados rechaza `data-reveal` sin valor, pero no acota el
+  // valor: un typo como `data-reveal="items"` pasaba las cuatro guardas y
+  // regresionaba en silencio y en tres frentes. global.css:167 matchea por
+  // presencia (`[data-reveal]`), asi que el elemento sigue oculto, pero
+  // global.css:174 (`[data-reveal="item"]`) ya no lo matchea y le da el wipe del
+  // lead en vez del rise. La regla generica `.is-in` de global.css:170 no declara
+  // transition-delay, asi que el `--reveal-delay` que motion.ts:83 escribe se
+  // ignora y el elemento pierde su lugar en el escalonado. Y motion.ts:56
+  // (`=== 'lead'` else item) igual le asigna indice, asi que consume un paso y
+  // empuja a todos los items siguientes de su scope: un typo deforma la cascada
+  // entera. Los conteos del test de arriba no lo ven (`items >= 15` sigue
+  // pasando), el pelado no lo ve (hay un `=`) y el anidamiento tampoco (los dos
+  // contadores bajan juntos y siguen balanceando).
+  //
+  // Es a proposito que esto sea exacto y no un superconjunto: agregar un tercer
+  // rol es una decision de diseno y tiene que romper este test y hacerse a
+  // conciencia, no colarse como un string mas.
+  const roles = new Set([...markup.matchAll(/data-reveal="([^"]*)"/g)].map((m) => m[1]));
+  assert.deepEqual(
+    [...roles].sort(),
+    ['item', 'lead'],
+    `data-reveal con un rol fuera de lead|item: ${[...roles].join(', ')}`,
   );
 });
 
@@ -1011,8 +1108,8 @@ test('ningun reveal anida otro reveal', opciones, () => {
   //
   // Se recorre el markup y no el fuente porque "ser descendiente de" no se
   // expresa en texto: el `.map` de EdicionCard y el de SerParte deciden cuantos
-  // reveals hay y donde caen, y solo el DOM ya renderizado lo dice.
-  const markup = html.replace(/<script[\s\S]*?<\/script>/g, '');
+  // reveals hay y donde caen, y solo el DOM ya renderizado lo dice. `markup` ya
+  // viene sin scripts, estilos ni comentarios (ver el helper del encabezado).
   // Los void no se apilan: no traen tag de cierre, asi que empujarlos
   // desincroniza la pila para todo lo que venga despues y el guard empieza a
   // inventar anidamientos. Los de cierre implicito se cierran antes de apilar:
@@ -1024,10 +1121,6 @@ test('ningun reveal anida otro reveal', opciones, () => {
   const CIERRE_IMPLICITO = new Set([
     'dd', 'dt', 'li', 'option', 'p', 'rp', 'rt', 'td', 'th', 'thead', 'tbody', 'tfoot', 'tr',
   ]);
-  // Se recortan los tags largos por el medio, no por el final: el rol
-  // (`data-reveal="lead"`) esta al cierre y sin el el mensaje dice que algo se
-  // anida pero no que cosa.
-  const etiquetar = (t) => (t.length > 110 ? `${t.slice(0, 60)}...${t.slice(-46)}` : t);
   const pila = [];
   const anidados = [];
   let revelaciones = 0;
