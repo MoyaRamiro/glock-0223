@@ -1051,19 +1051,34 @@ test('los wrappers que agrupan items no son items', opciones, () => {
   // hoy ese `<p>` lleva reveal, asi que falla un cambio legitimo culpando al `<p>`
   // en vez del wrapper; y si no lo llevara, el retarget pasaria en silencio sin
   // haber mirado el `<div>` real. Anclar el tag evita las dos cosas.
+  //
+  // Y dentro del atributo `class` se busca la clase distintiva, no el atributo
+  // entero. Con el atributo entero, anteponerle una clase al wrapper —le pasa a
+  // cualquiera que lo anime, que es justo lo que este test existe para cazar—
+  // lo dejaba sin match, y el diagnostico decia que el wrapper no existia. El
+  // wrapper seguia ahi, con una clase mas: el assert era correcto y el mensaje
+  // mentia. Anclar en el token separa los dos fallos, que piden arreglos
+  // distintos.
+  //
+  // El token tiene que ser una clase entera: se exige que este al principio del
+  // atributo o precedida por un espacio, y seguida de un espacio o de la comilla
+  // de cierre. Asi un `md:mt-4` de Tailwind no cuenta como el `mt-4` pelado.
   const wrappers = [
-    ['Ediciones', 'div', 'class="mt-4"', 'sus hijos ya son items'],
-    ['SerParte', 'div', 'class="mt-8 border-b border-white/15"', 'sus hijos ya son items'],
-    ['Hero', 'div', 'class="mt-10 grid gap-8 md:grid-cols-12"', 'agrupa las columnas que revelan en la Task 4'],
+    ['Ediciones', 'div', 'mt-4', 'sus hijos ya son items'],
+    ['SerParte', 'div', 'mt-8', 'sus hijos ya son items'],
+    ['Hero', 'div', 'mt-10', 'agrupa las columnas que revelan en la Task 4'],
   ];
   for (const [nombre, tag, clase, motivo] of wrappers) {
     const src = leer(`src/components/${nombre}.astro`);
     const escapada = clase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const encontrado = new RegExp(`<${tag}[^>]*${escapada}[^>]*>`).exec(src);
-    assert.ok(encontrado, `${nombre}.astro no tiene el wrapper <${tag} ${clase}>: revisa que el plan siga vigente`);
+    const encontrado = new RegExp(`<${tag}[^>]*class="(?:[^"]*\\s)?${escapada}(?:\\s|")[^>]*>`).exec(src);
+    assert.ok(
+      encontrado,
+      `${nombre}.astro no tiene ningun <${tag}> con la clase "${clase}": revisa que el plan siga vigente, o que el wrapper haya cambiado de clase`,
+    );
     assert.ok(
       !encontrado[0].includes('data-reveal'),
-      `${nombre}.astro: el wrapper <${tag} ${clase}> no debe ser item porque ${motivo}`,
+      `${nombre}.astro: el wrapper <${etiquetar(encontrado[0])}> no debe ser item porque ${motivo}`,
     );
   }
 });
@@ -1229,6 +1244,45 @@ test('la coreografia del hero no esconde el h1', () => {
   const j = css.indexOf('.glock-hero-rise');
   assert.ok(j > 0, 'no existe la entrada de los elementos de apoyo');
   assert.match(cuerpoDe(css, j), /animation/, 'los elementos de apoyo no animan');
+
+  // El fill mode `both` no es cosmetico: los pasos 2, 3 y 4 del rise arrancan
+  // 80/160/240 ms tarde, y sin fill el elemento se ve en su estado natural
+  // durante el retardo —opaco y sin transform— y recien al vencer el retardo se
+  // va a `from`: un flash a invisible en tres de los cinco elementos del hero.
+  //
+  // Se exigen las dos reglas en un mismo loop, no solo la del rise, para que no
+  // quede una que se pueda perder por despacho. Cada fila trae lo que rompe en SU
+  // caso, porque no es el mismo: el h1 arranca en delay 0, asi que ahi el `both`
+  // no cambia nada hoy y el costo de perderlo es que el dia que su entrada levou
+  // un retardo nadie lo note. El rise, en cambio, esta roto ya.
+  //
+  // Se lee el cuerpo de cada regla con `cuerpoDe`, asi que ni un comentario ni la
+  // regla vecina pueden dar el verde: el marquee de `global.css:112-117` tampoco
+  // lleva `both` —no debe— pero vive en otra regla y queda fuera del recorte. El
+  // `[^;}]*` evita que el `both` se tome de otra declaracion de la misma regla, y
+  // el nombre del keyframe va en el mismo patron para que un verde no pueda venir
+  // de una declaracion que anima otra cosa. La forma larga
+  // (`animation-fill-mode`) no se acepta: el shorthand ya queda fijado por el
+  // assert de `animation:` de mas arriba.
+  for (const [selector, animacion, consecuencia] of [
+    [
+      '.glock-hero-title',
+      'glock-hero-title-in',
+      'hoy arranca en delay 0 y no se ve, pero el dia que su entrada lleve retardo va a aparecer ya en su sitio y recien ahi saltar al inicio, sin avisar',
+    ],
+    [
+      '.glock-hero-rise',
+      'glock-hero-rise',
+      'los pasos 2, 3 y 4 se ven en su estado final durante los 80/160/240 ms de retardo y despues entran en from con un flash a opacity 0',
+    ],
+  ]) {
+    const cuerpo = cuerpoDe(css, css.indexOf(selector));
+    assert.match(
+      cuerpo,
+      new RegExp(`animation\\s*:[^;}]*\\b${animacion}\\b[^;}]*\\bboth\\b`),
+      `${selector} no declara "${animacion}" con el fill mode "both": sin el, ${consecuencia}`,
+    );
+  }
 });
 
 test('los pasos del hero no se pisan entre si', () => {
