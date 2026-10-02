@@ -46,9 +46,23 @@ const etiquetar = (t) => (t.length > 110 ? `${t.slice(0, 60)}...${t.slice(-46)}`
 const RE_REVELO = /(?<![\w-])data-reveal(?![\w-])/;
 const esRevelo = (tag) => RE_REVELO.test(tag);
 
-// El cuerpo de la primera regla cuyo selector ES `selector`, con el indice donde
-// arranca el selector, o `null` si no existe. El `indice` esta porque hay una
-// comparacion que no se puede hacer con el cuerpo: el orden de dos reglas.
+// Los comentarios se borran de todo el CSS antes de mirar una regla, y se borran
+// reemplazandolos por espacios en vez de por nada: el indice de cada caracter tiene
+// que seguir siendo el mismo, porque `reglaDe` devuelve offsets que el assert de
+// orden compara entre reglas y `cuerpoDe` recibe el `desde` que le paso otro helper.
+//
+// No es una formalidad. Este stylesheet carga comentarios en espanol que explican
+// cada por que, y varios nombran las mismas propiedades que los asserts miran
+// —`transform`, `clip-path`, `opacity`—, asi que un `/* el clip abre aca */` dentro
+// del keyframe del h1 hacia fallar el assert de clip sobre un archivo correcto: el
+// comentario no es codigo. `reglaDe` ya lo hacia en el selector; `cuerpoDe` es el
+// que se habia quedado fuera, y es el que le reparte los cuerpos a los asserts.
+const sinComentarios = (css) => css.replace(/\/\*[\s\S]*?\*\//g, (c) => ' '.repeat(c.length));
+
+// El cuerpo de la primera regla de PRIMER NIVEL cuyo selector ES `selector`, con
+// el indice donde arranca el selector, o `null` si no existe. El `indice` esta
+// porque hay una comparacion que no se puede hacer con el cuerpo: el orden de dos
+// reglas.
 //
 // El locator tiene que comparar el selector entero y no un prefijo. Con
 // `indexOf('.glock-hero-title')` un `.glock-hero-title span` de arriba roba el
@@ -56,23 +70,31 @@ const esRevelo = (tag) => RE_REVELO.test(tag);
 // con `.glock-hero-rise` pasa lo mismo con un `-alt`. Es el defecto que
 // `RE_REVELO` ya corrigio en el otro extremo de la cadena —un prefijo tomado por
 // el nombre entero— asi que aca la frontera va en el final del selector: se
-// separan las partes de la lista y se comparan completas. El comentario se saca
-// antes de comparar porque sino una regla con el selector partido por un
-// comentario no matchearia nunca y el assert pasaria sin mirar nada.
+// separan las partes de la lista y se comparan completas.
 //
-// El `lastIndexOf` arranca en `llave - 1` y no en `llave` a proposito: el indice
-// de la llave es inclusivo, asi que buscandolo desde el mismo `llave` devolveria
-// la propia llave, el selector saldria vacio y ninguna regla matchearia nunca.
+// Y tiene que ser de primer nivel, por el mismo motivo un escalon mas arriba: un
+// `@media (max-width: 640px) { .glock-hero-title { … } }` de arriba es un override
+// responsive, no la entrada del h1, y tomarlo como si lo fuera haria que todos los
+// asserts del hero leyeran el breakpoint equivocado —casi siempre el equivocado—.
+// Es el Minor 3 del retarget por prefijo, con un `@media` en vez de un decoy, y un
+// breakpoint es una edicion mucho mas probable que un decoy. El recorrido lleva la
+// profundidad de llaves a mano: cuando aparece una `{` en nivel 0, el selector es
+// todo lo que hubo desde la ultima llave cerrada.
 function reglaDe(css, selector) {
-  const limpio = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').trim();
-  for (let desde = 0; ; ) {
-    const llave = css.indexOf('{', desde);
-    if (llave < 0) return null;
-    const anterior = Math.max(css.lastIndexOf('}', llave), css.lastIndexOf('{', llave - 1));
-    const partes = limpio(css.slice(anterior + 1, llave)).split(',').map(limpio);
-    if (partes.includes(selector)) return { desde: anterior + 1, llave, cuerpo: cuerpoDe(css, llave) };
-    desde = llave + 1;
+  const texto = sinComentarios(css);
+  let desde = 0;
+  let nivel = 0;
+  for (let i = 0; i < texto.length; i++) {
+    if (texto[i] === '}') { nivel -= 1; desde = i + 1; continue; }
+    if (texto[i] !== '{') continue;
+    const partes = texto.slice(desde, i).split(',').map((p) => p.trim());
+    if (nivel === 0 && partes.includes(selector)) {
+      return { desde, llave: i, nivel, cuerpo: cuerpoDe(css, i) };
+    }
+    nivel += 1;
+    desde = i + 1;
   }
+  return null;
 }
 
 // Un solo recorrido de tags en todo el archivo, porque la parte dificil —los
@@ -703,13 +725,20 @@ function jsEjecutado(markup) {
  * colaria un `opacity: 0` que nadie ve. Lo mismo pasa con un `@media` que
  * envuelve reglas: hay que bajar hasta su llave de cierre, no hasta la de la
  * primera regla que contiene.
+ *
+ * Los comentarios se borran antes de contar y antes de devolver: una llave de
+ * cierre escrita dentro de un comentario para explicar el corte no puede cerrar
+ * la regla antes de tiempo. Los indices no se mueven porque el enmascarado
+ * conserva la longitud —ver `sinComentarios`—, asi que el `desde` que recibe el
+ * helper es el mismo indice del texto que el recorrido de llaves usa.
  */
 function cuerpoDe(css, desde) {
-  const abierto = css.indexOf('{', desde);
+  const texto = sinComentarios(css);
+  const abierto = texto.indexOf('{', desde);
   let prof = 0;
-  for (let i = abierto; i < css.length; i++) {
-    if (css[i] === '{') prof++;
-    else if (css[i] === '}' && --prof === 0) return css.slice(abierto + 1, i);
+  for (let i = abierto; i < texto.length; i++) {
+    if (texto[i] === '{') prof++;
+    else if (texto[i] === '}' && --prof === 0) return texto.slice(abierto + 1, i);
   }
   return '';
 }
@@ -1256,12 +1285,23 @@ test('ningun reveal anida otro reveal', opciones, () => {
   // item es hijo de un scope y eso es lo correcto, no un anidamiento.
   const anidados = [];
   let revelaciones = 0;
-  recorrerTags(markup, (e, pila) => {
+  const sinCerrar = recorrerTags(markup, (e, pila) => {
     if (!/\sdata-reveal="(?:lead|item)"/.test(e.atributos)) return;
     revelaciones += 1;
     const ancestro = pila.findLast((a) => /\sdata-reveal="(?:lead|item)"/.test(a.atributos));
     if (ancestro) anidados.push(`${etiquetar(e.tag)} dentro de ${etiquetar(ancestro.tag)}`);
   });
+  // Que el recorrido haya consumido el archivo entero es una invariante del
+  // recorrido, no una consecuencia de que hoy no haya nada sin cerrar: si un void
+  // dejara de apilarse —o un tag de menos matcheara— la pila queda con gente
+  // colgando al final y todo lo de arriba pasa mirando un arbol incompleto sin
+  // quejarse. El helper devuelve la pila final justamente para que eso sea un
+  // assert y no un argumento.
+  assert.deepEqual(
+    sinCerrar,
+    [],
+    `el recorrido termino con ${sinCerrar.length} tag(s) sin cerrar: ${sinCerrar.map((t) => t.nombre).join(', ')}. Un void que se apila o un tag que deja de matchear deja la pila colgando y el anidamiento de mas abajo se mide sobre un arbol incompleto`,
+  );
   // Anti-vacuitud: el recorrido tiene que haber visto tantos reveals como el
   // markup declara. Si el regex de tags dejara de matchear algo, la pila queda
   // vacia y el deepEqual de abajo pasa sin haber mirado nada: un guard que
@@ -1340,6 +1380,13 @@ test('la coreografia del hero no esconde el h1', () => {
   // navegador no lo cuenta como pintado hasta que el clip se abre y el LCP se
   // corre. La regla de clase no puede tener ese problema, porque no declara
   // estado inicial. Por eso el assert de arriba vive, y por eso este pesa.
+  //
+  // La invariante es "ningun clip-path en el keyframe", no "ningun clip-path en el
+  // from": abrir el clip es justamente la proxima iteracion del plan, asi que este
+  // assert la va a dar en rojo a proposito. No se relaja para acomodar ese edit:
+  // el edit futuro tiene que enmendar el test a mano, y por el motivo que lo hace
+  // necesario —es el unico punto donde el estado inicial del LCP se escribe de
+  // verdad— y no porque el assert moleste.
   assert.ok(
     !/clip-path/.test(cuerpo),
     'glock-hero-title-in arranca con el clip cerrado: el h1 no se pinta hasta que el clip se abre, el navegador espera y el timestamp de LCP se corre',
@@ -1464,45 +1511,78 @@ test('los pasos del hero no se pisan entre si', () => {
   // `.map` del marquee no desincronicen la pila—:
   //
   //   - subir el rise del CTA (14) al `<div class="md:col-span-7">` (12), que es
-  //     su ancestro: dos transforms compuestos, el hazard que la Correccion 5
-  //     nombraba. Ojo que el `<p>` de (13) es hermano del CTA, no ancestro: poner
-  //     el rise ahi no compone nada, solo baja el conteo de rises a tres;
-  //   - subirlo al `<div>` de la grilla (7), que es el padre directo del h1: no
-  //     tiene `data-hero-step`, asi que delay 0, y su `from { opacity: 0 }` mete
-  //     al elemento LCP dentro de un subarbol invisible en el primer frame;
+  //     su ancestro: el rise ancestro le corre `from { opacity: 0 }` al CTA 80 ms
+  //     tarde y el CTA queda invisible durante su propio retardo. Ojo que el `<p>`
+  //     de (13) es hermano del CTA, no ancestro: poner el rise ahi no compone
+  //     nada, solo baja el conteo de rises a tres;
+  //   - subir el rise del CTA al `<div>` de la grilla (7), que es el padre directo
+  //     del h1: no tiene `data-hero-step`, asi que delay 0, y su `from { opacity:
+  //     0 }` mete al elemento LCP dentro de un subarbol invisible en el primer
+  //     frame;
   //   - subirlo al `<section id="top">` (5): todo lo animado queda debajo.
+  //
+  // La comprobacion va en las dos direcciones porque el hazard no es simetrico. Un
+  // rise dentro de un rise compone dos transform; un rise dentro del h1 no compone
+  // transform —el ancestro y el descendiente no se multiplican sin 3D—, pero mete
+  // al elemento LCP dentro de un `from { opacity: 0 }`, y ese es el mismo LCP que
+  // el otro test dice que entra pintado. Medir solo "rise dentro de rise" deja
+  // exactamente ese caso en verde: `Hero.astro:7` tiene un solo rise, el `<p>` de (9),
+  // asi que mover ese rise al div conserva las 4 lineas con rise, los 4 pasos, los
+  // conteos del recorrido y los tres guards, y aun asi el h1 no se pinta en el
+  // primer frame. Por eso el titulo tambien pregunta por un rise ancestors, y por
+  // eso el mensaje nombra el mecanismo que aplica a lo que se encontro en vez de
+  // repetir siempre "componian dos transforms".
   const RE_RISE = /(?<![\w-])glock-hero-rise(?![\w-])/;
   const RE_TITLE = /(?<![\w-])glock-hero-title(?![\w-])/;
   const ascendidos = [];
   let risesVistos = 0;
   let titulosVistos = 0;
-  recorrerTags(
+  const sinCerrar = recorrerTags(
     src,
     (e, pila) => {
       if (RE_RISE.test(e.atributos)) risesVistos += 1;
       if (RE_TITLE.test(e.atributos)) titulosVistos += 1;
-      if (!RE_RISE.test(e.atributos)) return;
+      const esRise = RE_RISE.test(e.atributos);
+      const esTitulo = RE_TITLE.test(e.atributos);
+      if (!esRise && !esTitulo) return;
       const ancestro = pila.findLast((a) => RE_RISE.test(a.atributos) || RE_TITLE.test(a.atributos));
-      if (ancestro) ascendidos.push(`${etiquetar(e.tag)} dentro de ${etiquetar(ancestro.tag)}`);
+      if (!ancestro) return;
+      // El mecanismo depende de quien quedo adentro, y el mensaje lo dice: dos
+      // transform solo se componen cuando los dos elementos se mueven, y el h1 no
+      // se mueve cuando lo envuelve un rise, lo que hace es taparlo.
+      const mecanismo = esTitulo
+        ? 'el rise le corre al h1 su from { opacity: 0 } y el elemento LCP queda sin pintar en el primer frame'
+        : 'el rise ancestro y el rise hijo componen dos transform en el mismo elemento';
+      ascendidos.push(
+        `${mecanismo}:\n      ${etiquetar(e.tag)} dentro de ${etiquetar(ancestro.tag)}`,
+      );
     },
   );
   // Anti-vacuitud: el recorrido tiene que haber visto lo mismo que el conteo por
-  // linea. Si el regex de tags dejara de matchear algo, la pila queda vacia y el
+  // linea y tiene que haber consumido el archivo entero. Si el regex de tags dejara
+  // de matchear algo, o un void se apilara, la pila queda con gente colgando y el
   // deepEqual de abajo pasa sin haber mirado nada.
+  assert.deepEqual(
+    sinCerrar,
+    [],
+    `el recorrido termino con ${sinCerrar.length} tag(s) sin cerrar: ${sinCerrar.map((t) => t.nombre).join(', ')}. Un void que se apila deja la pila colgando y la ascendencia de abajo se mide sobre un arbol incompleto`,
+  );
   assert.equal(risesVistos, rise.length, `el recorrido vio ${risesVistos} rises y el conteo por linea ve ${rise.length}`);
   assert.equal(titulosVistos, 1, `el recorrido vio ${titulosVistos} titulos y deberia ver 1`);
   assert.deepEqual(
     ascendidos,
     [],
-    `un elemento animado envuelve a otro que tambien anima, y componian dos transforms:\n  ${ascendidos.join('\n  ')}`,
+    `un elemento animado envuelve a otro que tambien anima:\n  ${ascendidos.join('\n  ')}`,
   );
 
   // Los pasos viven en el markup y los retardos en el CSS. Renumerar uno solo
   // deja al elemento apuntando a un `[data-hero-step='N']` que no existe: no
   // matchea ninguna regla, no recibe retardo y entra con el primero, asi que la
-  // ultima pieza aterriza con la primera y el escalonado deja de leerse.
+  // ultima pieza aterriza con la primera y el escalonado deja de leerse. Por eso
+  // el recorrido de retardos tambien se arma sobre el texto sin comentarios: un
+  // retardo escrito dentro de un bloque commented no retrasa a nadie.
   const css = leer('src/styles/global.css');
-  const retardos = [...css.matchAll(/\[data-hero-step='(\d)'\]\s*\{\s*animation-delay:\s*([\d.]+m?s)\s*;/g)]
+  const retardos = [...sinComentarios(css).matchAll(/\[data-hero-step='(\d)'\]\s*\{\s*animation-delay:\s*([\d.]+m?s)\s*;/g)]
     .map(([, n, d]) => ({ paso: Number(n), texto: d, ms: Number.parseFloat(d) * (d.endsWith('ms') ? 1 : 1000) }))
     .sort((a, b) => a.paso - b.paso);
   assert.deepEqual(
@@ -1538,11 +1618,25 @@ test('los pasos del hero no se pisan entre si', () => {
   // `animation-delay` a 0s como parte de su reset. Con las reglas de retardo
   // arriba, el rise las pisa, los cuatro pasos entran juntos, no hay error de
   // sintaxis y ninguna otra guarda del archivo lo nota.
+  //
+  // Y tienen que estar al primer nivel, no dentro de un at-rule. Comparar offsets
+  // solo no alcanza: `[data-hero-step='2']` metido en el bloque de
+  // `prefers-reduced-motion` sigue despues de `.glock-hero-rise`, asi que el
+  // assert de orden lo daba por bueno, pero ese retardo solo aplica a quien pidio
+  // menos movimiento —donde ademas `animation: none !important` ya apaga todo— y
+  // para el resto el paso entra en 0s. Es el caso invertido de Minor D: no se
+  // trata de que el locator tome la regla equivocada, sino de que una regla
+  // metida donde no aplica pase por estar en el lugar correcto del archivo.
+  // `reglaDe` solo devuelve reglas de primer nivel, asi que una metida en un
+  // `@media` no aparece y el assert la echa.
   const riseCss = reglaDe(css, '.glock-hero-rise');
   assert.ok(riseCss, 'no existe la entrada de los elementos de apoyo');
   for (const r of retardos) {
     const regla = reglaDe(css, `[data-hero-step='${r.paso}']`);
-    assert.ok(regla, `no existe la regla de retardo del paso ${r.paso}`);
+    assert.ok(
+      regla,
+      `no existe la regla de retardo del paso ${r.paso} de primer nivel: si esta dentro de un @media el retardo solo aplica bajo esa condicion y el paso entra en 0s en el resto`,
+    );
     assert.ok(
       regla.llave > riseCss.llave,
       `[data-hero-step='${r.paso}'] esta antes de .glock-hero-rise y la pierde: el shorthand animation de la clase tiene la misma especificidad y reinicia el retardo a 0s, asi que los cuatro pasos entran juntos`,
