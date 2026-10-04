@@ -222,6 +222,12 @@ async function main() {
   const results = [];
   const backups = new Map();
 
+  function restoreAll(){ for(const [pp,orig] of backups){ try{ writeFileSync(pp,orig); }catch(e){} } }
+  process.on("SIGINT", ()=>{ restoreAll(); process.exit(130); });
+  process.on("uncaughtException", (e)=>{ console.error(e); restoreAll(); process.exit(1); });
+  process.on("unhandledRejection", (e)=>{ console.error(e); restoreAll(); process.exit(1); });
+
+  try{
   for (let i = 0; i < mutations.length; i++) {
     const mut = mutations[i];
     const fullPath = join(repoRoot, mut.file);
@@ -267,9 +273,15 @@ async function main() {
     writeFileSync(fullPath, original);
   }
 
-  // Also restore all in case
-  for (const [p, orig] of backups) {
-    writeFileSync(p, orig);
+  restoreAll();
+  }
+  catch (e) {
+    restoreAll();
+    console.error(e);
+    process.exit(1);
+  }
+  finally {
+    restoreAll();
   }
 
   console.error('DEBUG: printing results');
