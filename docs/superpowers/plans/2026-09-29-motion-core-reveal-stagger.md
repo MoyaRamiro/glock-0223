@@ -733,3 +733,17 @@ Por ultimo, con la red movil, la caja de la derecha del hero (linea 9) queda arr
 1. `Artistas`, `Sessions` y `Sponsors` llevan `data-reveal="item"` en el `<ul>` completo y no en cada `<li>`. Es deliberado: doce nombres escalonados se leen como ruido, y con el tope de 420 ms la cascada se aplastaria igual. Contradice la lectura literal de "items de Artistas" del spec. Si se quiere cascada real por nombre, hay que subir el tope y eso cambia la sensacion de toda la pagina.
 2. `SongWars` y `Proxima` quedan con items contados y un escalonado casi plano. Con dos items el efecto se percibe poco; no se les agrego estructura solo para justificar el vocabulario.
 3. La desviacion del asentamiento magenta en el h1 esta en la Task 4 y es una decision, no un olvido. Animar `text-shadow` en el elemento LCP fuerza repaint en la ventana que este plan existe para no tocar.
+
+## Triage de minors
+
+Los tres puntos de arriba quedan **aceptados con justificacion**, no corregidos:
+
+- **Densidad en el `<ul>` de Artistas, Sessions y Sponsors:** el escalonado va en el `<ul>`, no en cada `<li>`. Aceptado: doce nombres en cascada se leen como ruido y con el tope de 420 ms la cascada se aplastaria igual. Subir el tope para forzarla cambia la sensacion de toda la pagina, que es justo lo que este plan evita. Reverrir solo si el cliente lo pide.
+- **SongWars y Proxima con escalonado casi plano:** acept. Con dos items el efecto se percibe poco y no se les agrego estructura solo para justificar el vocabulario.
+- **Glow magenta del h1 sin animar:** acept. Es la proteccion del invariante de LCP, verificado en produccion con el `h1` sin `data-reveal`, en opacity 1 y sin `clip-path`.
+
+Un minor mas aparecio al cerrar la rama y queda **corregido**:
+
+- **El harness de mutaciones no era alcanzable.** `scripts/mutation-harness.mjs` existia pero ningun script de `package.json` lo invocaba, asi que la red de seguridad de la Task 5 no se podía correr sin saber la ruta exacta. Agregado `npm run mutate`.
+
+**Por que `mutate` no entra en `ci`:** son 17 mutaciones y cada una hace un build mas la suite completa. Es un gate lento, de los que se corren a mano o porcheduleado, no en cada commit. `ci` sigue siendo el gate por commit: `check`, `build` y `test` (63 tests). Los dos se complementan y ninguno reemplaza al otro.

@@ -10,6 +10,7 @@
     "check": "astro check",
     "og": "node scripts/generate-og.mjs",
     "test": "node --test \"tests/**/*.test.mjs\"",
+    "mutate": "node scripts/mutation-harness.mjs",
     "ci": "npm run check && astro build && npm run test"
   },
   "dependencies": {
