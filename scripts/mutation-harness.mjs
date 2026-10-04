@@ -1,0 +1,295 @@
+#!/usr/bin/env node
+import { execSync } from 'child_process';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const repoRoot = root;
+
+function run(cmd, opts = {}) {
+  try {
+    return execSync(cmd, { cwd: repoRoot, stdio: 'pipe', encoding: 'utf8', ...opts });
+  } catch (e) {
+    if (opts.allowFail) return e.stdout || e.stderr || '';
+    throw e;
+  }
+}
+
+function isClean() {
+  const out = run('git status --short');
+  if (out.trim() === '') return true;
+  const lines = out.trim().split(/\r?\n/);
+  const relevantes = lines.filter(l => {
+    const path = l.replace(/^\?\?\s+/, '').replace(/^[AMDRCU?]\s+/, '');
+    // tolerar el propio harness sin commitear
+    if (path === 'scripts/mutation-harness.mjs') return false;
+    return true;
+  });
+  return relevantes.length === 0;
+}
+
+function preserveLineEndings(content, original) {
+  if (original.includes('\r\n')) {
+    return content.replace(/\r?\n/g, '\r\n');
+  }
+  if (original.includes('\n') && !original.includes('\r\n')) {
+    return content.replace(/\r\n/g, '\n');
+  }
+  return content;
+}
+
+// Helper for mutation 17
+function reglaDeRange(css, selector) {
+  const texto = css.replace(/\/\*[\s\S]*?\*\//g, c => ' '.repeat(c.length));
+  let desde = 0;
+  let nivel = 0;
+  for (let i = 0; i < texto.length; i++) {
+    if (texto[i] === '}') { nivel -= 1; desde = i + 1; continue; }
+    if (texto[i] !== '{') continue;
+    const partes = texto.slice(desde, i).split(',').map(p => p.trim());
+    if (nivel === 0 && partes.includes(selector)) {
+      let prof = 0;
+      let j = i;
+      for (; j < texto.length; j++) {
+        if (texto[j] === '{') prof++;
+        else if (texto[j] === '}' && --prof === 0) break;
+      }
+      return { start: desde, end: j + 1 };
+    }
+    nivel += 1;
+    desde = i + 1;
+  }
+  return null;
+}
+
+const mutations = [
+  {
+    id: 1,
+    name: 'remove .js-reveal gate from item selector',
+    file: 'src/styles/global.css',
+    apply: (s) => s.replace(/\.js-reveal\s+(\[data-reveal="item"\])/g, '$1'),
+  },
+  {
+    id: 2,
+    name: 'remove TOPE_MS cap in stagger calculation',
+    file: 'src/scripts/motion.ts',
+    apply: (s) => s.replace(/Math\.min\([^,]+,\s*TOPE_MS\)/g, (m) => {
+      const inner = m.match(/Math\.min\(([^,]+),/);
+      return inner ? inner[1].trim() : m;
+    }),
+  },
+  {
+    id: 3,
+    name: 'add opacity: 0 to .glock-hero-title',
+    file: 'src/styles/global.css',
+    apply: (s) => s.replace(/(\.glock-hero-title\s*\{[^}]*?)animation:/g, '$1opacity: 0; animation:'),
+  },
+  {
+    id: 4,
+    name: 'remove sueltos from targets',
+    file: 'src/scripts/motion.ts',
+    apply: (s) => s.replace(/\.\.\.sueltos\s*,\s*/g, ''),
+  },
+  {
+    id: 5,
+    name: 'delete safety network block',
+    file: 'src/scripts/motion.ts',
+    apply: (s) => {
+      const marker = '// Red de seguridad propia';
+      const idx = s.indexOf(marker);
+      if (idx === -1) return s;
+      const end = s.indexOf('// Sin IntersectionObserver', idx);
+      if (end > idx) return s.slice(0, idx) + s.slice(end);
+      const lines = s.split(/\r?\n/);
+      const startLine = lines.findIndex(l => l.includes(marker));
+      if (startLine === -1) return s;
+      lines.splice(startLine, Math.min(20, lines.length - startLine));
+      return lines.join(s.includes('\r\n') ? '\r\n' : '\n');
+    },
+  },
+  {
+    id: 6,
+    name: 'remove data-reveal-scope from one component section',
+    file: 'src/components/Sessions.astro',
+    apply: (s) => s.replace(/data-reveal-scope/g, ''),
+  },
+  {
+    id: 7,
+    name: 'add data-reveal="item" to nested <p class="mt-3"> in Sessions.astro:25',
+    file: 'src/components/Sessions.astro',
+    apply: (s) => s.replace(/<p class="mt-3"/g, '<p data-reveal="item" class="mt-3"'),
+  },
+  {
+    id: 8,
+    name: 'change one component data-reveal="item" to data-reveal="items"',
+    file: 'src/components/Artistas.astro',
+    apply: (s) => s.replace(/data-reveal="item"/, 'data-reveal="items"'),
+  },
+  {
+    id: 9,
+    name: 'make a section scope bare data-reveal',
+    file: 'src/components/Manifiesto.astro',
+    apply: (s) => s.replace(/data-reveal-scope/g, 'data-reveal'),
+  },
+  {
+    id: 10,
+    name: 'remove both from .glock-hero-rise declaration',
+    file: 'src/styles/global.css',
+    apply: (s) => s.replace(/(\.glock-hero-rise\s*\{[^}]*animation:[^;}]*?)\bboth\b/g, '$1'),
+  },
+  {
+    id: 11,
+    name: 'add clip-path inset(0 0 100% 0) to keyframes glock-hero-title-in from',
+    file: 'src/styles/global.css',
+    apply: (s) => s.replace(/(@keyframes glock-hero-title-in\s*\{[^}]*?from\s*\{)/g, '$1 clip-path: inset(0 0 100% 0);'),
+  },
+  {
+    id: 12,
+    name: 'add opacity: 0 to same from block',
+    file: 'src/styles/global.css',
+    apply: (s) => s.replace(/(@keyframes glock-hero-title-in\s*\{[^}]*?from\s*\{[^}]*?)(transform:)/g, '$1opacity: 0; $2'),
+  },
+  {
+    id: 13,
+    name: 'renumber [data-hero-step] 1..4 to 0..3',
+    file: 'src/styles/global.css',
+    apply: (s) => {
+      let t = s.replace(/data-hero-step='1'/g, "data-hero-step='0'");
+      t = t.replace(/data-hero-step='2'/g, "data-hero-step='1'");
+      t = t.replace(/data-hero-step='3'/g, "data-hero-step='2'");
+      t = t.replace(/data-hero-step='4'/g, "data-hero-step='3'");
+      return t;
+    },
+  },
+  {
+    id: 14,
+    name: 'move [data-hero-step] rules above .glock-hero-rise',
+    file: 'src/styles/global.css',
+    apply: (s) => {
+      const regex = /\[data-hero-step='[0-9]'\]\s*\{[^}]*\}/g;
+      const stepRules = [];
+      let match;
+      while ((match = regex.exec(s)) !== null) stepRules.push(match[0]);
+      if (stepRules.length === 0) return s;
+      let out = s;
+      for (const r of stepRules) out = out.replace(r, '');
+      const riseIdx = out.indexOf('.glock-hero-rise');
+      if (riseIdx === -1) return s;
+      const before = out.lastIndexOf('\n', riseIdx);
+      const insertPos = before === -1 ? riseIdx : before + 1;
+      return out.slice(0, insertPos) + stepRules.join('\n') + '\n' + out.slice(insertPos);
+    },
+  },
+  {
+    id: 15,
+    name: 'move .glock-hero-rise from Hero.astro:9 onto parent (line 7)',
+    file: 'src/components/Hero.astro',
+    apply: (s) => s.replace(/class="glock-hero-rise[^"]*"/g, '').replace(/(<div class="grid[^"]*)"/, '$1 glock-hero-rise"'),
+  },
+  {
+    id: 16,
+    name: 'delete opacity: 1 !important from reduced-motion item rule',
+    file: 'src/styles/global.css',
+    apply: (s) => s.replace(/(\.js-reveal\s*\[data-reveal="item"\]\s*\{[^}]*?)opacity:\s*1\s*!important\s*;?/g, '$1'),
+  },
+  {
+    id: 17,
+    name: 'delete .glock-hero-title rule entirely',
+    file: 'src/styles/global.css',
+    apply: (s) => {
+      const rule = reglaDeRange(s, '.glock-hero-title');
+      if (!rule) return s;
+      return s.slice(0, rule.start) + s.slice(rule.end);
+    },
+  },
+];
+
+async function main() {
+  if (!isClean()) {
+    console.error('error: git status no esta limpio (guardar o commitear cambios)');
+    process.exit(1);
+  }
+
+  // base
+  try {
+    run('cd ' + repoRoot + ' && node --test "tests/content.test.mjs"');
+  } catch (e) {
+    console.error('error: los tests de base fallaron antes de mutar');
+    process.exit(1);
+  }
+
+  const results = [];
+  const backups = new Map();
+
+  for (let i = 0; i < mutations.length; i++) {
+    const mut = mutations[i];
+    const fullPath = join(repoRoot, mut.file);
+    if (!existsSync(fullPath)) {
+      results.push({ ...mut, caught: false, fired: 'NOT CAUGHT (file missing)' });
+      continue;
+    }
+    const original = readFileSync(fullPath, 'utf8');
+    backups.set(fullPath, original);
+    const mutated = preserveLineEndings(mut.apply(original), original);
+    writeFileSync(fullPath, mutated);
+
+    // Some mutations need build if touching src that affects dist? Tests read dist for some checks but also src
+    // The instruction says build before mutations that touch src or state why. Many touch src files.
+    let built = false;
+    if (mut.file.startsWith('src/')) {
+      try {
+        run('cd ' + repoRoot + ' && npx --no-install astro build 2>&1', { allowFail: true });
+        built = true;
+      } catch (e) {
+        built = false;
+      }
+    }
+
+    let caught = false;
+    let fired = 'NOT CAUGHT';
+    try {
+      run('cd ' + repoRoot + ' && node --test "tests/content.test.mjs" 2>&1');
+      caught = false;
+      fired = 'NOT CAUGHT';
+    } catch (e) {
+      caught = true;
+      const out = e.stdout || e.stderr || '';
+      // Try to extract test name that failed
+      const failMatch = out.match(/FAIL\s+([^\n]+)/);
+      const testNameMatch = out.match(/✖\s+([^\n]+)/);
+      fired = failMatch ? failMatch[1].trim() : (testNameMatch ? testNameMatch[1].trim() : 'FAILED');
+    }
+
+    results.push({ ...mut, caught, fired, built });
+
+    // Restore
+    writeFileSync(fullPath, original);
+  }
+
+  // Also restore all in case
+  for (const [p, orig] of backups) {
+    writeFileSync(p, orig);
+  }
+
+  console.error('DEBUG: printing results');
+  process.stdout.write('\n=== MUTATION RESULTS ===\n');
+  for (const r of results) {
+    process.stdout.write(`${r.id.toString().padStart(2)}. ${r.name}\n`);
+    process.stdout.write(`    fired: ${r.fired}\n`);
+    process.stdout.write(`    built: ${r.built}\n`);
+    process.stdout.write('\n');
+  }
+  const caught = results.filter(r => r.caught).length;
+  const notCaught = results.length - caught;
+  process.stdout.write(`Summary: ${caught} caught / ${notCaught} NOT CAUGHT / ${results.length} total\n`);
+
+  if (notCaught > 0) process.exit(1);
+  process.exit(0);
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}
+
+export { mutations, isClean, run };
