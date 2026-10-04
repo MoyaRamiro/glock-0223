@@ -2,7 +2,7 @@
 import { execSync } from 'child_process';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = root;
@@ -87,9 +87,17 @@ const mutations = [
   },
   {
     id: 4,
-    name: 'remove sueltos from targets',
+    // el nombre viene del brief, que estaba escrito contra una version del
+    // modulo que tenia un conjunto `sueltos`. Hoy todos los `[data-reveal]` se
+    // observan en el mismo bucle, asi que "quitar los sueltos de los
+    // observados" es directamente filtrar el bucle por scope.
+    name: 'el observer deja de observar los reveals sin scope',
     file: 'src/scripts/motion.ts',
-    apply: (s) => s.replace(/\.\.\.sueltos\s*,\s*/g, ''),
+    apply: (s) =>
+      s.replace(
+        /for \(const el of reveals\) observer\.observe\(el\);/,
+        "for (const el of reveals) if (el.closest('[data-reveal-scope]')) observer.observe(el);",
+      ),
   },
   {
     id: 5,
@@ -116,9 +124,12 @@ const mutations = [
   },
   {
     id: 7,
-    name: 'add data-reveal="item" to nested <p class="mt-3"> in Sessions.astro:25',
+    // el patron anterior buscaba `<p class="mt-3"` con comilla de cierre, pero
+    // el elemento real es `<p class="mt-3 flex flex-wrap ...">`, asi que la
+    // sustitucion noenia nada y la mutacion pasaba sin tocar el archivo.
+    name: 'anidar un reveal dentro de otro en Sessions.astro',
     file: 'src/components/Sessions.astro',
-    apply: (s) => s.replace(/<p class="mt-3"/g, '<p data-reveal="item" class="mt-3"'),
+    apply: (s) => s.replace(/<p class="mt-3 /g, '<p data-reveal="item" class="mt-3 '),
   },
   {
     id: 8,
@@ -238,6 +249,16 @@ async function main() {
     const original = readFileSync(fullPath, 'utf8');
     backups.set(fullPath, original);
     const mutated = preserveLineEndings(mut.apply(original), original);
+
+    // Una mutacion que no cambia el archivo no prueba nada: la suite sigue
+    // verde porque no toco nada, y reportarla como NOT CAUGHT la confunde con
+    // un guard que falta. Dos de las diecisiete estaban rotas justo asi y se
+    // leian como cobertura faltante. Si el patron dejo de existir, el harness
+    // se frena y obliga a rehacer la mutacion.
+    if (mutated === original) {
+      results.push({ ...mut, caught: false, inert: true, fired: 'INERTA (no modifico el archivo)' });
+      continue;
+    }
     writeFileSync(fullPath, mutated);
 
     // Some mutations need build if touching src that affects dist? Tests read dist for some checks but also src
@@ -292,15 +313,28 @@ async function main() {
     process.stdout.write(`    built: ${r.built}\n`);
     process.stdout.write('\n');
   }
-  const caught = results.filter(r => r.caught).length;
-  const notCaught = results.length - caught;
-  process.stdout.write(`Summary: ${caught} caught / ${notCaught} NOT CAUGHT / ${results.length} total\n`);
-
+  const inertes = results.filter((r) => r.inert);
+  const caught = results.filter((r) => r.caught).length;
+  const notCaught = results.filter((r) => !r.caught && !r.inert).length;
+  process.stdout.write(
+    `Summary: ${caught} caught / ${notCaught} NOT CAUGHT / ${inertes.length} inertes / ${results.length} total\n`,
+  );
+  // Una inerta no es un guard faltante sino una mutacion que hay que rehacer,
+  // asi que sale por su cuenta y no se disimula como cobertura.
+  if (inertes.length > 0) {
+    process.stdout.write(`\nINERTES: ${inertes.map((r) => r.id).join(', ')}\n`);
+    process.exit(1);
+  }
   if (notCaught > 0) process.exit(1);
   process.exit(0);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// `file://${process.argv[1]}` no sirve en windows: argv[1] viene con
+// backslashes y sin el slash inicial, asi que la comparacion nunca era cierta y
+// main() no corria nunca. El harness salia con 0 sin hacer nada, que es
+// justamente el resultado que hace pasar por verde una suite sin ejecutar.
+// `pathToFileURL` normaliza el path a la misma forma que da `import.meta.url`.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main();
 }
 
