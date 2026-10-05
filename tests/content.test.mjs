@@ -1780,6 +1780,19 @@ test('el FAQ apaga el marcador nativo antes de dibujar su chevron', () => {
     /details\[open\][^{]*\.faq-pregunta::after\s*\{[^}]*transform:/,
     'el chevron no rota al abrir: falta la regla details[open]',
   );
+  // Y girar de verdad. Con el mismo angulo en los dos estados el chevron es un
+  // adorno fijo, y el unico signo de que la pregunta esta abierta pasa a ser el
+  // bloque de texto — o sea, el signo mas lento de leer.
+  const cerrada = /transform:\s*rotate\(([-\d.]+)deg\)/.exec(after[1]);
+  const abierta = /details\[open\][^{]*\.faq-pregunta::after\s*\{([^}]*)\}/.exec(css);
+  assert.ok(abierta, 'falta la regla details[open] del chevron');
+  const abiertaAng = abierta && /transform:\s*rotate\(([-\d.]+)deg\)/.exec(abierta[1]);
+  assert.ok(cerrada && abiertaAng, 'el chevron no declara angulo de rotacion en ambos estados');
+  assert.notEqual(
+    abiertaAng[1],
+    cerrada[1],
+    'el chevron rota al mismo angulo al abrir: no se mueve y queda como un adorno fijo',
+  );
 });
 
 test('el cierre del FAQ no depende de que el navegador lo haga al instante', () => {
