@@ -1670,3 +1670,144 @@ test('la coreografia del hero respeta reduced-motion', () => {
     'reduced-motion no anula el translateY de los items: quedan corridos en el sitio final',
   );
 });
+
+// ------------------------------------------------------------------ //
+// FAQ: apertura y cierre animados sobre <details> nativo.
+// ------------------------------------------------------------------ //
+
+test('cada pregunta del FAQ envuelve su respuesta en un cuerpo animable', () => {
+  const src = leer('src/components/Faq.astro');
+  // El wrapper es lo que hace posible la animacion. Sin el, el unico hijo del
+  // <details> es el <p> y no hay una altura propia que interpolar: lo unico que
+  // se podria animar seria el texto, y el bloque no creeria.
+  assert.match(
+    src,
+    /<summary[\s\S]*?<div class="faq-cuerpo">/,
+    'el FAQ no envuelve la respuesta en un .faq-cuerpo: no hay altura que animar',
+  );
+  // Uno por <details>, no uno por seccion. El `.map` de data.faq lo rinde en el
+  // build, asi que en el fuente tiene que aparecer exactamente una vez.
+  const detalles = (src.match(/<details/g) || []).length;
+  const cuerpos = (src.match(/class="faq-cuerpo"/g) || []).length;
+  assert.equal(cuerpos, detalles, 'tiene que haber un .faq-cuerpo por cada <details>');
+  // Y nada de reveal aca: las respuestas no entran por el observer, entran con
+  // el click. El guard de densidad (Faq: [1, 1, 0]) sigue siendo el que manda.
+  assert.equal(
+    (src.match(/data-reveal="item"/g) || []).length,
+    0,
+    'una respuesta del FAQ con data-reveal la animaria el observer y el wrapper a la vez',
+  );
+});
+
+test('el cuerpo del FAQ arranca en altura 0 y con overflow oculto', () => {
+  const css = leer('src/styles/global.css');
+  const regla = reglaDe(css, '.faq-cuerpo');
+  assert.ok(regla, 'no existe la regla de primer nivel .faq-cuerpo: la altura no tiene con que animarse');
+  // Las dos mitades del truco van juntas. `height: 0` solo recorta el texto, y
+  // sin `overflow: hidden` el texto se ve asomando por encima del borde.
+  assert.match(
+    regla.cuerpo,
+    /height:\s*0/,
+    '.faq-cuerpo no arranca en height 0: el bloque aparece con su alto final y no hay nada que interpolar',
+  );
+  assert.match(
+    regla.cuerpo,
+    /overflow:\s*hidden/,
+    '.faq-cuerpo no oculta el desborde: el texto se ve asomando mientras el bloque crece',
+  );
+  assert.match(
+    regla.cuerpo,
+    /transition:[^;}]*height/,
+    '.faq-cuerpo no tiene transition de height: la apertura y el cierre seria un salto',
+  );
+});
+
+test('la animacion del FAQ habla el mismo idioma que los reveals', () => {
+  const css = leer('src/styles/global.css');
+  const cuerpo = reglaDe(css, '.faq-cuerpo');
+  const reveal = reglaDe(css, '.js-reveal [data-reveal].is-in');
+  assert.ok(cuerpo && reveal, 'faltan las reglas para comparar el idioma del motion');
+  // Mismo easing, y el timing en la misma escala que el reveal de 0.5s. El FAQ
+  // es la misma pagina: si abre en 0.5s y los reveals en 0.8s, se siente como
+  // dos sitios pegados.
+  const durCuerpo = /height\s+([\d.]+)s/.exec(cuerpo.cuerpo);
+  const durReveal = /clip-path\s+([\d.]+)s/.exec(reveal.cuerpo);
+  assert.ok(durCuerpo && durReveal, 'no se puede comparar la duracion: falta el tiempo en alguna de las dos');
+  assert.equal(
+    durCuerpo[1],
+    durReveal[1],
+    'el FAQ y el reveal duran distinto: la misma pagina no puede tener dos ritmos',
+  );
+  assert.match(
+    cuerpo.cuerpo,
+    /var\(--ease-glock\)/,
+    '.faq-cuerpo no usa --ease-glock: el FAQ se abre con una curva que no existe en el resto del sitio',
+  );
+});
+
+test('el FAQ apaga el marcador nativo antes de dibujar su chevron', () => {
+  const css = leer('src/styles/global.css');
+  // Sin esto el visitante ve el triangulito del browser pegado al lado del
+  // chevron: dos indicadores que dicen lo mismo y no se sabe cual manda.
+  assert.match(
+    css,
+    /\.faq-pregunta::(webkit-details-)?marker[^}]*display:\s*none|\.faq-pregunta\s*\{[^}]*list-style:\s*none/,
+    'el FAQ no apaga el marcador nativo: convive con el chevron',
+  );
+  const after = /\.faq-pregunta::after\s*\{([^}]*)\}/.exec(css);
+  assert.ok(after, 'no existe el chevron .faq-pregunta::after');
+  // Y tiene que girar con la apertura, no cambiar de dibujo.
+  assert.match(
+    css,
+    /details\[open\][^{]*\.faq-pregunta::after\s*\{[^}]*transform:/,
+    'el chevron no rota al abrir: falta la regla details[open]',
+  );
+});
+
+test('el FAQ consulta prefers-reduced-motion antes de animar', () => {
+  const src = leer('src/scripts/faq.ts');
+  // Esta es la unica guarda del bloque que el CSS no puede cubrir. El bloque
+  // `prefers-reduced-motion` apaga las transitions con `!important`, asi que el
+  // alto se corta de golpe —bien-, pero el `transitionend` del que depende el
+  // cierre para poner `details.open = false` nunca llega: sin esta consulta la
+  // pregunta se queda abierta a la mitad y el estado nativo miente.
+  assert.match(
+    src,
+    /prefers-reduced-motion/,
+    'faq.ts no consulta prefers-reduced-motion: sin transicion no hay transitionend y el cierre nunca termina',
+  );
+  assert.match(
+    src,
+    /matchMedia\(/,
+    'faq.ts no lee la media query: el guard anterior no puede dispararse',
+  );
+});
+
+test('el FAQ tiene una red de seguridad para cuando no llega el transitionend', () => {
+  const src = leer('src/scripts/faq.ts');
+  // El cierre escribe `details.open = false` recién cuando termina la
+  // transición. Si el `transitionend` no llega —una pestaña en background no
+  // transiciona, y una transición interrumpida no emite el evento— el `<details>`
+  // se queda con `open` en `true` mientras el bloque mide 0: el elemento se
+  // declara abierto y no muestra nada. El reproductor no es el que abre y cierra,
+  // así que el que tiene que asentar el estado final es el propio modulo.
+  assert.match(
+    src,
+    /setTimeout\(/,
+    'faq.ts depende solo del transitionend: sin fallback, una transición que no dispara deja el details abierto con altura 0',
+  );
+  // Y el fallback tiene que escribir el mismo estado final que el evento, no uno
+  // propio: si divergen, el que gane deja el acordeón a medias.
+  const asentar = /const asentar\s*=\s*\(\)\s*=>\s*\{([\s\S]*?)\r?\n\s*\};/.exec(src);
+  assert.ok(asentar, 'no se encuentra la funcion que asienta el estado final');
+  assert.match(
+    asentar[1],
+    /\.style\.height\s*=\s*abriendo\s*\?\s*'auto'\s*:\s*''/,
+    'el estado final no devuelve el alto a auto en abierto ni lo deja al CSS en cerrado',
+  );
+  assert.match(
+    asentar[1],
+    /!abriendo[\s\S]*?\.open\s*=\s*false/,
+    'cerrar no termina escribiendo open = false: el details queda declarandose abierto',
+  );
+});

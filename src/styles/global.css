@@ -246,3 +246,62 @@ a.tag:hover { background: #F5F1E8; color: #0A0A0A; border-color: #F5F1E8; }
         su estado inicial y el texto sigue ahi para quien pidio menos movimiento. */
   .js-reveal [data-reveal="item"] { opacity: 1 !important; transform: none !important; }
 }
+
+/* ------------------------------------------------------------------ *
+ * FAQ
+ *
+ * A diferencia del bloque de arriba, acá sí se anima `height`, y es una
+ * excepción deliberada y acotada a estas reglas: la animación la pide el
+ * visitante con un click, corre una sola vez sobre un bloque chico, y
+ * termina en `auto` para que el texto vuelva a reflowear al redimensionar.
+ * Animar altura por scroll sí daría layout shift en cada frame; esto no.
+ *
+ * El `<details>` sigue siendo nativo y no se reemplaza: sin JS abre al
+ * instante, con teclado funciona, y el lector de pantalla ya lo entiende
+ * como acordeón. Lo que se agrega es el wrapper `.faq-cuerpo` —sin una
+ * altura propia no hay nada que interpolar— y el chevron, que es CSS puro
+ * y no necesita JS para girar.
+ * ------------------------------------------------------------------ */
+.faq-pregunta {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+.faq-pregunta::marker,
+.faq-pregunta::-webkit-details-marker { display: none; }
+/* Dos bordes forman el chevron. Apunta hacia abajo cerrado y rota 180° al
+   abrir, no 90°: con dos bordes, un giro de 90° la deja de costado y se lee
+   como una flecha horizontal en vez de un chevron. */
+.faq-pregunta::after {
+  content: "";
+  flex: none;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-right: 2px solid var(--glock-magenta);
+  border-bottom: 2px solid var(--glock-magenta);
+  transform: rotate(45deg);
+  transition: transform 0.5s var(--ease-glock);
+}
+details[open] > .faq-pregunta::after { transform: rotate(225deg); }
+
+/* El alto concreto lo escribe faq.ts. Declarar `height: 0` acá es lo que
+   recorta la respuesta mientras está cerrada, y `overflow: hidden` es la
+   otra mitad del truco: sin él el texto se ve asomando por arriba del borde
+   mientras el bloque crece. */
+.faq-cuerpo {
+  height: 0;
+  overflow: hidden;
+  transition: height 0.5s var(--ease-glock);
+}
+
+/* El texto entra mientras el bloque crece. Mismo offset y misma duración que
+   el rise del hero, para que no parezca otra animación. El `both` importa por
+   lo mismo que allá: sin él, durante el delay el texto ya se vería en su
+   estado final y la entrada no se vería. */
+@keyframes faq-entrada {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+details[open] > .faq-cuerpo > * { animation: faq-entrada 0.5s var(--ease-glock) both; }
