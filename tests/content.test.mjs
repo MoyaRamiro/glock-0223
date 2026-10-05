@@ -1677,19 +1677,21 @@ test('la coreografia del hero respeta reduced-motion', () => {
 
 test('cada pregunta del FAQ envuelve su respuesta en un cuerpo animable', () => {
   const src = leer('src/components/Faq.astro');
-  // El wrapper es lo que hace posible la animacion. Sin el, el unico hijo del
-  // <details> es el <p> y no hay una altura propia que interpolar: lo unico que
-  // se podria animar seria el texto, y el bloque no creeria.
+  // Dos wrappers y no uno. El exterior es la fila que se interpola
+  // (0fr -> 1fr) y el interior es el que recorta: `overflow: hidden` tiene que
+  // estar en el hijo, porque en el padre romperia el grid.
   assert.match(
     src,
-    /<summary[\s\S]*?<div class="faq-cuerpo">/,
-    'el FAQ no envuelve la respuesta en un .faq-cuerpo: no hay altura que animar',
+    /<summary[\s\S]*?<div class="faq-cuerpo">\s*<div class="faq-cuerpo-interior">/,
+    'el FAQ no anida .faq-cuerpo > .faq-cuerpo-interior: no hay fila que interpolar ni hijo que recorte',
   );
-  // Uno por <details>, no uno por seccion. El `.map` de data.faq lo rinde en el
+  // Uno por <details>, no uno por seccion. El `map` de data.faq lo rinde en el
   // build, asi que en el fuente tiene que aparecer exactamente una vez.
   const detalles = (src.match(/<details/g) || []).length;
   const cuerpos = (src.match(/class="faq-cuerpo"/g) || []).length;
+  const interiores = (src.match(/class="faq-cuerpo-interior"/g) || []).length;
   assert.equal(cuerpos, detalles, 'tiene que haber un .faq-cuerpo por cada <details>');
+  assert.equal(interiores, detalles, 'tiene que haber un .faq-cuerpo-interior por cada <details>');
   // Y nada de reveal aca: las respuestas no entran por el observer, entran con
   // el click. El guard de densidad (Faq: [1, 1, 0]) sigue siendo el que manda.
   assert.equal(
@@ -1699,26 +1701,42 @@ test('cada pregunta del FAQ envuelve su respuesta en un cuerpo animable', () => 
   );
 });
 
-test('el cuerpo del FAQ arranca en altura 0 y con overflow oculto', () => {
+test('el alto del FAQ se interpola sin que nadie mida un pixel', () => {
   const css = leer('src/styles/global.css');
-  const regla = reglaDe(css, '.faq-cuerpo');
-  assert.ok(regla, 'no existe la regla de primer nivel .faq-cuerpo: la altura no tiene con que animarse');
-  // Las dos mitades del truco van juntas. `height: 0` solo recorta el texto, y
-  // sin `overflow: hidden` el texto se ve asomando por encima del borde.
+  const cuerpo = reglaDe(css, '.faq-cuerpo');
+  const interior = reglaDe(css, '.faq-cuerpo-interior');
+  assert.ok(cuerpo && interior, 'faltan las reglas de primer nivel del FAQ');
+  // `0fr -> 1fr` y no `height: 0 -> Npx`: el browser interpola hasta el tamano
+  // intrinseco del texto, asi que la transicion cae siempre en el lugar
+  // exacto. Con un alto medido a mano, el final de la animacion y el estado
+  // real casi nunca coinciden del todo y el borde queda desfasado un instante.
   assert.match(
-    regla.cuerpo,
-    /height:\s*0/,
-    '.faq-cuerpo no arranca en height 0: el bloque aparece con su alto final y no hay nada que interpolar',
+    cuerpo.cuerpo,
+    /grid-template-rows:\s*0fr/,
+    '.faq-cuerpo no arranca en 0fr: la fila aparece con su alto final y no hay nada que interpolar',
   );
   assert.match(
-    regla.cuerpo,
+    cuerpo.cuerpo,
+    /transition:[^;}]*grid-template-rows/,
+    '.faq-cuerpo no tiene transition de grid-template-rows: la apertura y el cierre seria un salto',
+  );
+  assert.match(
+    css,
+    /details\[open\][^{]*\.faq-cuerpo\s*\{[^}]*grid-template-rows:\s*1fr/,
+    'no hay regla details[open] que abra la fila a 1fr: el FAQ no se abre',
+  );
+  // El recorte va en el hijo, y con `min-height: 0` al lado: sin eso la fila no
+  // baja de 1fr aunque el contenido sea cero, que es justo para lo que existe
+  // el `min-height` dentro de un grid.
+  assert.match(
+    interior.cuerpo,
     /overflow:\s*hidden/,
-    '.faq-cuerpo no oculta el desborde: el texto se ve asomando mientras el bloque crece',
+    '.faq-cuerpo-interior no oculta el desborde: el texto se ve asomando mientras la fila crece',
   );
   assert.match(
-    regla.cuerpo,
-    /transition:[^;}]*height/,
-    '.faq-cuerpo no tiene transition de height: la apertura y el cierre seria un salto',
+    interior.cuerpo,
+    /min-height:\s*0/,
+    '.faq-cuerpo-interior no declara min-height 0: la fila no puede colapsar a 0fr',
   );
 });
 
@@ -1730,7 +1748,7 @@ test('la animacion del FAQ habla el mismo idioma que los reveals', () => {
   // Mismo easing, y el timing en la misma escala que el reveal de 0.5s. El FAQ
   // es la misma pagina: si abre en 0.5s y los reveals en 0.8s, se siente como
   // dos sitios pegados.
-  const durCuerpo = /height\s+([\d.]+)s/.exec(cuerpo.cuerpo);
+  const durCuerpo = /grid-template-rows\s+([\d.]+)s/.exec(cuerpo.cuerpo);
   const durReveal = /clip-path\s+([\d.]+)s/.exec(reveal.cuerpo);
   assert.ok(durCuerpo && durReveal, 'no se puede comparar la duracion: falta el tiempo en alguna de las dos');
   assert.equal(
@@ -1764,17 +1782,39 @@ test('el FAQ apaga el marcador nativo antes de dibujar su chevron', () => {
   );
 });
 
+test('el cierre del FAQ no depende de que el navegador lo haga al instante', () => {
+  const css = leer('src/styles/global.css');
+  const src = leer('src/scripts/faq.ts');
+  // Sacar el `open` de entrada hace que la fila pase de 1fr a 0fr de golpe, sin
+  // transicion. Por eso el cierre va con una clase: mientras el atributo sigue
+  // puesto, la fila baja a 0fr de verdad y recien ahi se saca el atributo.
+  const cerrando = /details\.faq-cerrando\s*>\s*\.faq-cuerpo\s*\{[^}]*grid-template-rows:\s*0fr/.exec(css);
+  assert.ok(cerrando, 'no existe details.faq-cerrando: el cierre no tiene forma de animarse');
+  assert.match(
+    src,
+    /classList\.add\('faq-cerrando'\)/,
+    'faq.ts no marca la clase de cierre: la fila nunca baja a 0fr de forma animada',
+  );
+  // Misma especificidad que la de apertura, asi que el orden es lo unico que
+  // las diferencia. Al reves, la regla de cierre se pierde y no cierra nunca.
+  const abierta = css.indexOf('details[open] > .faq-cuerpo');
+  const cerrada = css.indexOf('details.faq-cerrando > .faq-cuerpo');
+  assert.ok(abierta !== -1 && cerrada !== -1, 'faltan las reglas de apertura o de cierre');
+  assert.ok(
+    cerrada > abierta,
+    'la regla de cierre va antes que la de apertura: con igual especificidad gana la primera y el FAQ no cierra',
+  );
+});
+
 test('el FAQ consulta prefers-reduced-motion antes de animar', () => {
   const src = leer('src/scripts/faq.ts');
-  // Esta es la unica guarda del bloque que el CSS no puede cubrir. El bloque
-  // `prefers-reduced-motion` apaga las transitions con `!important`, asi que el
-  // alto se corta de golpe —bien-, pero el `transitionend` del que depende el
-  // cierre para poner `details.open = false` nunca llega: sin esta consulta la
-  // pregunta se queda abierta a la mitad y el estado nativo miente.
+  // Quien pidio menos movimiento no entra al manejador: el toggle nativo lo
+  // abre y lo cierra de una. Ese return temprano es lo que hace que el cierre
+  // no dependa del `transitionend`, porque aca directamente no se espera ninguno.
   assert.match(
     src,
     /prefers-reduced-motion/,
-    'faq.ts no consulta prefers-reduced-motion: sin transicion no hay transitionend y el cierre nunca termina',
+    'faq.ts no consulta prefers-reduced-motion: el cierre queda esperando un transitionend que no existe',
   );
   assert.match(
     src,
@@ -1785,29 +1825,36 @@ test('el FAQ consulta prefers-reduced-motion antes de animar', () => {
 
 test('el FAQ tiene una red de seguridad para cuando no llega el transitionend', () => {
   const src = leer('src/scripts/faq.ts');
-  // El cierre escribe `details.open = false` recién cuando termina la
-  // transición. Si el `transitionend` no llega —una pestaña en background no
-  // transiciona, y una transición interrumpida no emite el evento— el `<details>`
-  // se queda con `open` en `true` mientras el bloque mide 0: el elemento se
-  // declara abierto y no muestra nada. El reproductor no es el que abre y cierra,
-  // así que el que tiene que asentar el estado final es el propio modulo.
+  // El cierre saca el `open` recien cuando termina la transicion. Si el
+  // `transitionend` no llega —una pestaña en background no transiciona, y una
+  // transicion interrumpida no emite el evento— el `<details>` se queda con
+  // `open` en `true` mientras la fila ya esta en 0fr: el elemento se declara
+  // abierto y no muestra nada. El reproductor no es el que abre y cierra, asi
+  // que el que tiene que asentar el estado final es el propio modulo.
   assert.match(
     src,
     /setTimeout\(/,
-    'faq.ts depende solo del transitionend: sin fallback, una transición que no dispara deja el details abierto con altura 0',
+    'faq.ts depende solo del transitionend: sin fallback, una transicion que no dispara deja el details abierto con la fila en 0fr',
   );
   // Y el fallback tiene que escribir el mismo estado final que el evento, no uno
-  // propio: si divergen, el que gane deja el acordeón a medias.
-  const asentar = /const asentar\s*=\s*\(\)\s*=>\s*\{([\s\S]*?)\r?\n\s*\};/.exec(src);
-  assert.ok(asentar, 'no se encuentra la funcion que asienta el estado final');
+  // propio: si divergen, el que gane deja el acordeon a medias.
+  const cerrar = /const cerrar = \(cancelar: boolean\) => \{([\s\S]*?)\r?\n\s*\};/.exec(src);
+  assert.ok(cerrar, 'no se encuentra la funcion que asienta el estado final del cierre');
   assert.match(
-    asentar[1],
-    /\.style\.height\s*=\s*abriendo\s*\?\s*'auto'\s*:\s*''/,
-    'el estado final no devuelve el alto a auto en abierto ni lo deja al CSS en cerrado',
+    cerrar[1],
+    /if \(!cancelar\) det\.open = false/,
+    'el cierre no termina escribiendo open = false: el details queda declarandose abierto',
   );
   assert.match(
-    asentar[1],
-    /!abriendo[\s\S]*?\.open\s*=\s*false/,
-    'cerrar no termina escribiendo open = false: el details queda declarandose abierto',
+    cerrar[1],
+    /classList\.remove\('faq-cerrando'\)/,
+    'el cierre no saca la clase de cierre: el FAQ queda bloqueado para siempre',
+  );
+  // Y el `cancelar` tiene que tener un motivo: si nadie lo pasa en true, es
+  // codigo muerto y el click que revierte un cierre no esta soportado.
+  assert.match(
+    src,
+    /cerrar\(true\)/,
+    'nadie cancela un cierre en vuelo: clickear mientras se cierra encadena dos cierres en vez de revertir',
   );
 });

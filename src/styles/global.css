@@ -250,16 +250,16 @@ a.tag:hover { background: #F5F1E8; color: #0A0A0A; border-color: #F5F1E8; }
 /* ------------------------------------------------------------------ *
  * FAQ
  *
- * A diferencia del bloque de arriba, acá sí se anima `height`, y es una
+ * A diferencia del bloque de arriba, acá sí se anima el alto, y es una
  * excepción deliberada y acotada a estas reglas: la animación la pide el
  * visitante con un click, corre una sola vez sobre un bloque chico, y
- * termina en `auto` para que el texto vuelva a reflowear al redimensionar.
+ * termina en el tamaño real del texto, que lo calcula el browser: no hay ningún`r`n * pixel medido a mano, así que no puede quedar desfasado al terminar.
  * Animar altura por scroll sí daría layout shift en cada frame; esto no.
  *
  * El `<details>` sigue siendo nativo y no se reemplaza: sin JS abre al
  * instante, con teclado funciona, y el lector de pantalla ya lo entiende
  * como acordeón. Lo que se agrega es el wrapper `.faq-cuerpo` —sin una
- * altura propia no hay nada que interpolar— y el chevron, que es CSS puro
+ * tamaño propio no hay nada que interpolar— y el chevron, que es CSS puro
  * y no necesita JS para girar.
  * ------------------------------------------------------------------ */
 .faq-pregunta {
@@ -286,14 +286,29 @@ a.tag:hover { background: #F5F1E8; color: #0A0A0A; border-color: #F5F1E8; }
 }
 details[open] > .faq-pregunta::after { transform: rotate(225deg); }
 
-/* El alto concreto lo escribe faq.ts. Declarar `height: 0` acá es lo que
-   recorta la respuesta mientras está cerrada, y `overflow: hidden` es la
-   otra mitad del truco: sin él el texto se ve asomando por arriba del borde
-   mientras el bloque crece. */
+/* El alto lo resuelve el browser con `grid-template-rows: 0fr -> 1fr`. No
+   hay ni un pixel medido en JS: el browser interpola hasta el tamano
+   intrinseco del texto, asi que la animacion cae siempre en el lugar
+   exacto y no puede dejar el borde desfasado al terminar. `overflow: hidden`
+   en el hijo es lo que recorta el texto mientras la fila esta en 0fr. */
 .faq-cuerpo {
-  height: 0;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.5s var(--ease-glock);
+}
+.faq-cuerpo-interior {
+  min-height: 0;
   overflow: hidden;
-  transition: height 0.5s var(--ease-glock);
+}
+details[open] > .faq-cuerpo {
+  grid-template-rows: 1fr;
+}
+/* El cierre no puede aflojarse con el atributo open: si se saca de
+   entrada la fila salta de 1fr a 0fr. faq.ts marca esta clase, espera a que
+   termine la transicion y recien ahi saca el atributo. Va despues de la regla
+   de arriba porque tiene la misma especificidad y el orden manda. */
+details.faq-cerrando > .faq-cuerpo {
+  grid-template-rows: 0fr;
 }
 
 /* El texto entra mientras el bloque crece. Mismo offset y misma duración que
@@ -304,4 +319,4 @@ details[open] > .faq-pregunta::after { transform: rotate(225deg); }
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
-details[open] > .faq-cuerpo > * { animation: faq-entrada 0.5s var(--ease-glock) both; }
+details[open] > .faq-cuerpo-interior > * { animation: faq-entrada 0.5s var(--ease-glock) both; }
